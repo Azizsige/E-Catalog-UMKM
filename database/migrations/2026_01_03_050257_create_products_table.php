@@ -12,19 +12,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('products', function (Blueprint $table) {
-        $table->id();
-        $table->foreignId('store_id')->constrained()->onDelete('cascade');
-        $table->foreignId('category_id')->constrained()->onDelete('cascade');
-        $table->string('name');
-        $table->string('slug')->unique();
-        $table->decimal('price', 15, 2);
-        $table->integer('stock')->default(0);
-        $table->integer('weight')->default(0); // Gram
-        $table->longText('description')->nullable();
-        $table->string('video_url')->nullable(); // Fitur Video
-        $table->timestamps();
-        $table->softDeletes(); // Biar gak ilang permanen kalau dihapus
-    });
+            $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // <--- INI YG HILANG TADI
+            $table->foreignId('category_id')->nullable()->constrained()->nullOnDelete();
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->integer('price');
+            $table->integer('stock')->default(0);
+            $table->text('description')->nullable();
+            $table->string('image')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
     }
 
     /**
