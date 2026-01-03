@@ -6,14 +6,20 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Seller\DashboardController as SellerDashboardController;
-
+use App\Models\Product;
+use App\Http\Controllers\Public\ProductController as PublicProductController;
 
 Route::get('/', function () {
+    // Ambil produk yang Active, urutkan terbaru
+    $products = Product::with('category', 'seller') // Load relasi biar nama seller & kategori muncul
+        ->where('is_active', true)
+        ->latest()
+        ->get();
+
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
+        'products' => $products, // <--- Lempar data produk ke Frontend
     ]);
 });
 
@@ -54,16 +60,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     // --- GRUP KHUSUS SELLER ---
-    // Dijaga oleh: role:seller & check.status
     Route::middleware(['role:seller', 'check.status'])->prefix('seller')->group(function () {
         
-        // Dashboard Seller
         Route::get('/dashboard', [SellerDashboardController::class, 'index'])
             ->name('seller.dashboard');
-
-        // Nanti route seller lainnya (produk, pesanan, dll) taruh sini...
+            
+        // --- TAMBAHAN BARU: PRODUK SAYA ---
+        Route::resource('/products', \App\Http\Controllers\Seller\ProductController::class)
+            ->names('seller.products'); // Ini ngasih nama route otomatis: seller.products.index, store, dll
     });
 
 });
+
+Route::get('/p/{slug}', [PublicProductController::class, 'show'])->name('product.detail');
 
 require __DIR__.'/auth.php';

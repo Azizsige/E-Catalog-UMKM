@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import { Button } from "@/Components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/Components/ui/sheet";
@@ -11,18 +11,51 @@ import {
     DropdownMenuTrigger,
 } from "@/Components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar";
-import { Menu, Store, Package, ShoppingCart, LogOut, Home } from "lucide-react";
+import {
+    Menu,
+    Package2,
+    LayoutDashboard,
+    ShoppingBag,
+    Users,
+    LogOut,
+    Tags,
+    Store,
+} from "lucide-react";
+import { Toaster } from "@/Components/ui/sonner"; // <--- Import Toaster
+import { toast } from "sonner"; // <--- Import function toast
+import {
+    Package, // <--- Ini yang bikin error tadi
+    ShoppingCart, // <--- Ini juga
+    Settings, // <--- Ini juga
+} from "lucide-react";
 
 export default function SellerLayout({ children }) {
-    const { auth } = usePage().props;
+    const { auth, flash } = usePage().props;
     const user = auth.user;
 
-    // MENU KHUSUS SELLER (Beda dengan Admin)
+    useEffect(() => {
+        if (flash?.message) {
+            toast.success(flash.message); // Munculkan pesan sukses
+        }
+        if (flash?.error) {
+            toast.error(flash.error); // Munculkan pesan error (opsional)
+        }
+    }, [flash]);
+
+    // List Menu Sidebar
     const navItems = [
-        { label: "Dashboard", href: route("seller.dashboard"), icon: Home },
-        { label: "Produk Saya", href: "#", icon: Package }, // Nanti dibuat
-        { label: "Pesanan Masuk", href: "#", icon: ShoppingCart }, // Nanti dibuat
-        { label: "Pengaturan Toko", href: "#", icon: Store }, // Nanti dibuat
+        {
+            label: "Dashboard",
+            href: route("seller.dashboard"),
+            icon: LayoutDashboard,
+        },
+        {
+            label: "Produk Saya",
+            href: route("seller.products.index"),
+            icon: Package,
+        }, // Icon Package import dari lucide-react
+        { label: "Pesanan Masuk", href: "#", icon: ShoppingCart },
+        { label: "Pengaturan Toko", href: "#", icon: Settings },
     ];
 
     return (
@@ -52,9 +85,11 @@ export default function SellerLayout({ children }) {
                 </nav>
             </aside>
 
-            {/* MAIN CONTENT */}
+            {/* MAIN CONTENT AREA */}
             <div className="flex flex-col w-full sm:gap-4 sm:py-4 sm:pl-64">
+                {/* HEADER / TOPBAR */}
                 <header className="sticky top-0 z-30 flex items-center gap-4 px-4 border-b h-14 bg-background sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+                    {/* TRIGGER SIDEBAR MOBILE */}
                     <Sheet>
                         <SheetTrigger asChild>
                             <Button
@@ -70,10 +105,10 @@ export default function SellerLayout({ children }) {
                             <nav className="grid gap-6 text-lg font-medium">
                                 <Link
                                     href="#"
-                                    className="flex items-center gap-2 text-lg font-bold text-blue-600"
+                                    className="flex items-center gap-2 text-lg font-bold"
                                 >
-                                    <Store className="w-6 h-6" />
-                                    <span>Seller Panel</span>
+                                    <Package2 className="w-6 h-6" />
+                                    <span>E-Catalog</span>
                                 </Link>
                                 {navItems.map((item, index) => (
                                     <Link
@@ -89,6 +124,7 @@ export default function SellerLayout({ children }) {
                         </SheetContent>
                     </Sheet>
 
+                    {/* USER PROFILE DROPDOWN (KANAN ATAS) */}
                     <div className="flex items-center gap-2 ml-auto">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -99,7 +135,7 @@ export default function SellerLayout({ children }) {
                                 >
                                     <Avatar>
                                         <AvatarImage src={user.avatar_url} />
-                                        <AvatarFallback>SL</AvatarFallback>
+                                        <AvatarFallback>AD</AvatarFallback>
                                     </Avatar>
                                     <span className="sr-only">
                                         Toggle user menu
@@ -107,9 +143,13 @@ export default function SellerLayout({ children }) {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Akun Toko</DropdownMenuLabel>
+                                <DropdownMenuLabel>
+                                    My Account
+                                </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem>Profil</DropdownMenuItem>
+                                <DropdownMenuItem>Settings</DropdownMenuItem>
+                                <DropdownMenuItem>Support</DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem>
                                     <Link
                                         href={route("logout")}
@@ -126,8 +166,10 @@ export default function SellerLayout({ children }) {
                     </div>
                 </header>
 
+                {/* ISI KONTEN (PAGE) */}
                 <main className="p-4 sm:px-6 sm:py-0">{children}</main>
             </div>
+            <Toaster position="top-right" richColors />
         </div>
     );
 }
