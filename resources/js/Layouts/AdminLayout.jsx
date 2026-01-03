@@ -48,7 +48,11 @@ export default function AdminLayout({ children }) {
             href: route("admin.categories.index"),
             icon: Tags,
         }, // <--- TAMBAHAN
-        { label: "Validasi Toko", href: "#", icon: ShoppingBag }, // Nanti kita buat
+        {
+            label: "Validasi Toko",
+            href: route("admin.store-approval.index"),
+            icon: ShoppingBag,
+        }, // Nanti kita buat
         { label: "Manajemen User", href: "#", icon: Users }, // Nanti kita buat
     ];
 

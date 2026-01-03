@@ -17,34 +17,53 @@ Route::get('/', function () {
     ]);
 });
 
-// Route::get('/dashboard', function () {
-//     return Inertia::render('Dashboard');
-// })->middleware(['auth', 'verified'])->name('dashboard');
-
-// Route::middleware('auth')->group(function () {
-//     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-//     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-//     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-// });
+Route::get('/approval', function () {
+    // Cukup Inertia::render, jangan Inertia\Inertia::render
+    return Inertia::render('Auth/Approval'); 
+})->name('approval.notice')->middleware('auth');
 
 // Group Route untuk yang SUDAH LOGIN (Auth)
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    // KUNCI: Cuma boleh diakses user dgn role 'admin'
-    Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
-        ->middleware('role:admin') // <--- Pasang gembok
-        ->name('admin.dashboard');
+    // --- GRUP KHUSUS ADMIN ---
+    // Semua route di dalam sini otomatis dijaga oleh:
+    // 1. role:admin (Hanya Admin)
+    // 2. check.status (Hanya yang Active)
+    Route::middleware(['role:admin', 'check.status'])->prefix('admin')->group(function () {
+        
+        // Dashboard Admin
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])
+            ->name('admin.dashboard');
 
-    Route::resource('/admin/categories', \App\Http\Controllers\Admin\CategoryController::class)
-    ->names('admin.categories');
+        // CRUD Categories (Sekarang aman, ikut terjaga!)
+        Route::resource('/categories', \App\Http\Controllers\Admin\CategoryController::class)
+            ->names('admin.categories');
 
-    // KUNCI: Cuma boleh diakses user dgn role 'seller'
-    Route::get('/seller/dashboard', [SellerDashboardController::class, 'index'])
-        ->middleware('role:seller') // <--- Pasang gembok
-        ->name('seller.dashboard');
+            // --- TAMBAHAN BARU: STORE APPROVAL ---
+        Route::get('/store-approval', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'index'])
+            ->name('admin.store-approval.index');
+            
+        Route::put('/store-approval/{user}/approve', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'approve'])
+            ->name('admin.store-approval.approve');
 
-    // 3. Dashboard Customer (Sementara redirect ke Homepage dulu)
-    // Nanti kita buat profile page khusus
+        Route::delete('/store-approval/{user}/reject', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'reject'])
+            ->name('admin.store-approval.reject');
+
+        // Nanti route admin lainnya (validasi toko, user, dll) taruh sini...
+    });
+
+
+    // --- GRUP KHUSUS SELLER ---
+    // Dijaga oleh: role:seller & check.status
+    Route::middleware(['role:seller', 'check.status'])->prefix('seller')->group(function () {
+        
+        // Dashboard Seller
+        Route::get('/dashboard', [SellerDashboardController::class, 'index'])
+            ->name('seller.dashboard');
+
+        // Nanti route seller lainnya (produk, pesanan, dll) taruh sini...
+    });
+
 });
 
 require __DIR__.'/auth.php';
