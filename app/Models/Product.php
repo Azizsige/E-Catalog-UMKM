@@ -10,16 +10,18 @@ class Product extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-        'category_id',
-        'name',
-        'slug',
-        'price',
-        'stock',
-        'description',
-        'image',
-        'is_active',
-    ];
+    'store_id', // Pastikan store_id juga ada di sini (buat jaga-jaga relasi nanti)
+    'user_id', 
+    'category_id', 
+    'name', 
+    'slug', 
+    'price', 
+    'stock', 
+    'description', 
+    'image', 
+    'is_active',
+    'video_url', // <--- TAMBAHAN BARU
+];
 
     // Relasi ke User (Seller)
     public function seller()

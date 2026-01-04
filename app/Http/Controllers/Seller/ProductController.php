@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage; // Buat upload gambar
 use Illuminate\Support\Str; // Buat bikin slug otomatis
 use Inertia\Inertia;
+use Gemini\Laravel\Facades\Gemini;
 
 class ProductController extends Controller
 {
@@ -46,6 +47,7 @@ class ProductController extends Controller
             'stock' => 'required|integer|min:0',
             'description' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', // Max 2MB
+            'video_url' => 'nullable|url|max:255',
         ]);
 
         // Handle Upload Gambar
@@ -65,6 +67,7 @@ class ProductController extends Controller
             'stock' => $request->stock,
             'description' => $request->description,
             'image' => $imagePath,
+            'video_url' => $request->video_url,
             'is_active' => true,
         ]);
 
@@ -101,9 +104,10 @@ class ProductController extends Controller
             'stock' => 'required|integer|min:0',
             'description' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'video_url' => 'nullable|url|max:255',
         ]);
 
-        $data = $request->only(['name', 'category_id', 'price', 'stock', 'description']);
+        $data = $request->only(['name', 'category_id', 'price', 'stock', 'description', 'video_url']);
 
         // Jika user upload gambar baru
         if ($request->hasFile('image')) {
@@ -142,5 +146,54 @@ class ProductController extends Controller
 
         return redirect()->back()
             ->with('message', 'Produk berhasil dihapus.');
+    }
+
+    // --- FITUR MAGIC DESCRIPTION (AI) ---
+    public function generateDescription(Request $request)
+    {
+        // 1. Validasi: Harus ada nama produk minimal biar AI tau mau bikin apa
+        $request->validate([
+            'name' => 'required|string|min:3',
+            'keywords' => 'nullable|string' // Opsional: kata kunci tambahan
+        ]);
+
+        $name = $request->name;
+        $keywords = $request->keywords ? "Fokus pada keunggulan: " . $request->keywords : "";
+
+        // 2. Siapkan Mantra (Prompt) untuk Gemini
+        // Kita suruh dia jadi Copywriter handal
+        $prompt = "
+            Bertindaklah sebagai Copywriter Profesional untuk E-Commerce.
+            Tuliskan deskripsi penjualan yang SANGAT MENARIK, PERSUASIF, dan MENGGUGAH SELERA untuk produk bernama: '{$name}'.
+            {$keywords}
+            
+            Panduan:
+            - Gunakan Bahasa Indonesia yang luwes, akrab, tapi tetap sopan.
+            - Gunakan teknik copywriting AIDA (Attention, Interest, Desire, Action).
+            - Sertakan emoji yang relevan biar seru.
+            - Buat paragraf pendek-pendek biar enak dibaca di HP.
+            - Jangan terlalu panjang, cukup 100-150 kata.
+            - Output hanya teks deskripsi saja, tanpa pembuka 'Tentu, ini deskripsinya...'.
+        ";
+
+        try {
+            // 3. Kirim ke Gemini
+            // Kita panggil model secara spesifik pakai nama string 'gemini-2.5-flash'
+            $result = Gemini::generativeModel('gemini-2.5-flash')->generateContent($prompt);
+            
+            // 4. Ambil teks balasannya
+            $generatedText = $result->text();
+
+            return response()->json([
+                'success' => true,
+                'description' => $generatedText
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghubungi AI: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

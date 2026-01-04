@@ -13,6 +13,10 @@ use App\Http\Controllers\Public\ProductController as PublicProductController;
 use App\Http\Controllers\Seller\StoreController as SellerStoreController;
 use App\Http\Controllers\Public\StoreController as PublicStoreController;
 
+
+
+
+
 // --- ROUTE PUBLIK ---
 Route::get('/', [PublicProductController::class, 'index'])->name('home');
 
@@ -57,12 +61,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // CRUD Produk
         Route::resource('/products', \App\Http\Controllers\Seller\ProductController::class)->names('seller.products');
 
+        Route::post('/products/generate-ai', [\App\Http\Controllers\Seller\ProductController::class, 'generateDescription'])
+            ->name('seller.products.generate-ai');
+
         // --- PERBAIKAN 2: ROUTE SETTINGS PINDAH KE SINI ---
         // (Masuk dalam middleware seller biar aman & Auth::user() terbaca)
         Route::get('/store/settings', [SellerStoreController::class, 'edit'])->name('seller.store.edit');
         Route::post('/store/settings', [SellerStoreController::class, 'update'])->name('seller.store.update');
     });
 
+});
+
+
+Route::get('/cek-model-ai', function () {
+    try {
+        // Cara baru akses list model
+        $response = Gemini\Laravel\Facades\Gemini::models()->list();
+        
+        return response()->json($response);
+    } catch (\Exception $e) {
+        return "Error: " . $e->getMessage();
+    }
 });
 
 require __DIR__.'/auth.php';

@@ -4,7 +4,10 @@ import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
 import { Textarea } from "@/Components/ui/textarea"; // Pastikan file ini ada (kalau belum, pakai Input biasa)
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Sparkles, Youtube } from "lucide-react";
+
+import { useState } from "react"; // <--- Tambah useState
+import axios from "axios"; // <--- Tambah axios buat request ke AI
 
 export default function ProductCreate({ categories }) {
     // Setup Form Inertia
@@ -15,7 +18,47 @@ export default function ProductCreate({ categories }) {
         stock: "",
         description: "",
         image: null,
+        video_url: "",
     });
+
+    // 2. State buat loading AI
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    // 3. Fungsi Ajaib Pemanggil AI
+    const handleGenerateAI = async () => {
+        // Validasi: Nama produk harus diisi dulu
+        if (!data.name || data.name.length < 3) {
+            alert(
+                "Tolong isi Nama Produk dulu ya, biar AI-nya tau mau nulis apa! 😉"
+            );
+            return;
+        }
+
+        setIsGenerating(true);
+
+        try {
+            // Tembak Route AI yang kita bikin tadi
+            const response = await axios.post(
+                route("seller.products.generate-ai"),
+                {
+                    name: data.name,
+                    keywords: "Enak, Murah, Terlaris", // Kamu bisa bikin inputan keywords dinamis kalau mau
+                }
+            );
+
+            if (response.data.success) {
+                // Update kolom deskripsi dengan hasil dari AI
+                setData("description", response.data.description);
+            }
+        } catch (error) {
+            console.error("AI Error:", error);
+            alert(
+                "Gagal menghubungi AI. Coba lagi nanti atau cek koneksi internet."
+            );
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -158,17 +201,74 @@ export default function ProductCreate({ categories }) {
                             </div>
                         </div>
 
-                        {/* Deskripsi */}
                         <div className="space-y-2">
-                            <Label htmlFor="description">Deskripsi</Label>
-                            {/* Kalau component Textarea belum ada, ganti pakai <Textarea className="..." /> biasa */}
-                            <Textarea
-                                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            <Label htmlFor="video_url">
+                                Video Review (YouTube)
+                            </Label>
+                            <div className="relative">
+                                <div className="absolute left-3 top-3 text-gray-400">
+                                    <Youtube className="w-5 h-5" />
+                                </div>
+                                <Input
+                                    id="video_url"
+                                    placeholder="Contoh: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                                    className="pl-10" // Kasih padding kiri biar gak nabrak icon
+                                    value={data.video_url}
+                                    onChange={(e) =>
+                                        setData("video_url", e.target.value)
+                                    }
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500">
+                                Opsional. Masukkan link video review produk jika
+                                ada.
+                            </p>
+                            {errors.video_url && (
+                                <p className="text-red-500 text-sm">
+                                    {errors.video_url}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* --- DESKRIPSI DENGAN AI MAGIC (UPDATE) --- */}
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-end">
+                                <Label htmlFor="description">
+                                    Deskripsi Produk
+                                </Label>
+
+                                {/* TOMBOL MAGIC AI */}
+                                <button
+                                    type="button" // PENTING: type="button" biar gak nge-submit form
+                                    onClick={handleGenerateAI}
+                                    disabled={isGenerating}
+                                    className="text-xs flex items-center gap-1 text-purple-600 hover:text-purple-800 hover:bg-purple-50 px-2 py-1 rounded-md transition-colors font-medium border border-purple-200 bg-white"
+                                >
+                                    {isGenerating ? (
+                                        <>
+                                            <span className="animate-spin">
+                                                ✨
+                                            </span>{" "}
+                                            Sedang Berpikir...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="w-3 h-3" />{" "}
+                                            Buat Otomatis dengan AI
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
+                            <textarea
+                                id="description"
+                                rows="5"
+                                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                placeholder="Jelaskan keunggulan produkmu..."
                                 value={data.description}
                                 onChange={(e) =>
                                     setData("description", e.target.value)
                                 }
-                                placeholder="Jelaskan detail produkmu..."
                             />
                             {errors.description && (
                                 <p className="text-red-500 text-sm">
