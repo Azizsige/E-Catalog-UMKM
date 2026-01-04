@@ -24,6 +24,7 @@ class User extends Authenticatable
         'role',   // Pastikan ini ada (dari sesi 1)
         'status', // <--- TAMBAHKAN INI
         'avatar_url', // (Opsional, kalau kemarin sempet nambahin)
+        'phone',
     ];
 
     /**
@@ -53,5 +54,10 @@ class User extends Authenticatable
     public function products()
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function store()
+    {
+        return $this->hasOne(Store::class);
     }
 }

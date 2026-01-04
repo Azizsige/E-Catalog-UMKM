@@ -9,69 +9,60 @@ use App\Http\Controllers\Seller\DashboardController as SellerDashboardController
 use App\Models\Product;
 use App\Http\Controllers\Public\ProductController as PublicProductController;
 
-Route::get('/', function () {
-    // Ambil produk yang Active, urutkan terbaru
-    $products = Product::with('category', 'seller') // Load relasi biar nama seller & kategori muncul
-        ->where('is_active', true)
-        ->latest()
-        ->get();
+// --- PERBAIKAN 1: KITA PAKAI ALIAS BIAR JELAS ---
+use App\Http\Controllers\Seller\StoreController as SellerStoreController;
+use App\Http\Controllers\Public\StoreController as PublicStoreController;
 
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'products' => $products, // <--- Lempar data produk ke Frontend
-    ]);
-});
+// --- ROUTE PUBLIK ---
+Route::get('/', [PublicProductController::class, 'index'])->name('home');
 
+// Route Detail Produk
+Route::get('/p/{slug}', [PublicProductController::class, 'show'])->name('product.detail');
+
+// Route Profil Toko (Gunakan PublicStoreController)
+Route::get('/toko/{slug}', [PublicStoreController::class, 'show'])->name('store.show');
+
+
+// --- ROUTE APPROVAL (Auth Only) ---
 Route::get('/approval', function () {
-    // Cukup Inertia::render, jangan Inertia\Inertia::render
     return Inertia::render('Auth/Approval'); 
 })->name('approval.notice')->middleware('auth');
 
-// Group Route untuk yang SUDAH LOGIN (Auth)
+
+// --- GROUP ROUTE KHUSUS YANG SUDAH LOGIN ---
 Route::middleware(['auth', 'verified'])->group(function () {
 
     // --- GRUP KHUSUS ADMIN ---
-    // Semua route di dalam sini otomatis dijaga oleh:
-    // 1. role:admin (Hanya Admin)
-    // 2. check.status (Hanya yang Active)
     Route::middleware(['role:admin', 'check.status'])->prefix('admin')->group(function () {
         
         // Dashboard Admin
-        Route::get('/dashboard', [AdminDashboardController::class, 'index'])
-            ->name('admin.dashboard');
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
 
-        // CRUD Categories (Sekarang aman, ikut terjaga!)
-        Route::resource('/categories', \App\Http\Controllers\Admin\CategoryController::class)
-            ->names('admin.categories');
+        // CRUD Categories
+        Route::resource('/categories', \App\Http\Controllers\Admin\CategoryController::class)->names('admin.categories');
 
-            // --- TAMBAHAN BARU: STORE APPROVAL ---
-        Route::get('/store-approval', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'index'])
-            ->name('admin.store-approval.index');
-            
-        Route::put('/store-approval/{user}/approve', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'approve'])
-            ->name('admin.store-approval.approve');
-
-        Route::delete('/store-approval/{user}/reject', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'reject'])
-            ->name('admin.store-approval.reject');
-
-        // Nanti route admin lainnya (validasi toko, user, dll) taruh sini...
+        // Store Approval
+        Route::get('/store-approval', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'index'])->name('admin.store-approval.index');
+        Route::put('/store-approval/{user}/approve', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'approve'])->name('admin.store-approval.approve');
+        Route::delete('/store-approval/{user}/reject', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'reject'])->name('admin.store-approval.reject');
     });
 
 
     // --- GRUP KHUSUS SELLER ---
     Route::middleware(['role:seller', 'check.status'])->prefix('seller')->group(function () {
         
-        Route::get('/dashboard', [SellerDashboardController::class, 'index'])
-            ->name('seller.dashboard');
+        // Dashboard Seller
+        Route::get('/dashboard', [SellerDashboardController::class, 'index'])->name('seller.dashboard');
             
-        // --- TAMBAHAN BARU: PRODUK SAYA ---
-        Route::resource('/products', \App\Http\Controllers\Seller\ProductController::class)
-            ->names('seller.products'); // Ini ngasih nama route otomatis: seller.products.index, store, dll
+        // CRUD Produk
+        Route::resource('/products', \App\Http\Controllers\Seller\ProductController::class)->names('seller.products');
+
+        // --- PERBAIKAN 2: ROUTE SETTINGS PINDAH KE SINI ---
+        // (Masuk dalam middleware seller biar aman & Auth::user() terbaca)
+        Route::get('/store/settings', [SellerStoreController::class, 'edit'])->name('seller.store.edit');
+        Route::post('/store/settings', [SellerStoreController::class, 'update'])->name('seller.store.update');
     });
 
 });
-
-Route::get('/p/{slug}', [PublicProductController::class, 'show'])->name('product.detail');
 
 require __DIR__.'/auth.php';
