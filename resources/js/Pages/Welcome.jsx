@@ -1,9 +1,14 @@
-import { Head, Link } from "@inertiajs/react";
-import { ShoppingBag, User, LogIn } from "lucide-react";
+import { Head, Link, router } from "@inertiajs/react"; // Tambah router
+import { ShoppingBag, User, Search, X } from "lucide-react"; // Tambah icon Search & X
 import { Button } from "@/Components/ui/button";
+import { Input } from "@/Components/ui/input"; // Tambah Input
+import { useState } from "react"; // Tambah useState
 
-export default function Welcome({ auth, products }) {
-    // Helper format rupiah
+// Tambahkan props categories & filters
+export default function Welcome({ auth, products, categories, filters }) {
+    // State buat nyimpen apa yang diketik user
+    const [searchTerm, setSearchTerm] = useState(filters.search || "");
+
     const formatRupiah = (number) => {
         return new Intl.NumberFormat("id-ID", {
             style: "currency",
@@ -12,25 +17,55 @@ export default function Welcome({ auth, products }) {
         }).format(number);
     };
 
+    // Fungsi: Eksekusi Pencarian
+    const handleSearch = (e) => {
+        e.preventDefault();
+        router.get(
+            "/",
+            {
+                search: searchTerm,
+                category: filters.category, // Pertahankan filter kategori kalau ada
+            },
+            { preserveState: true }
+        );
+    };
+
+    // Fungsi: Pilih Kategori
+    const handleCategory = (categorySlug) => {
+        router.get(
+            "/",
+            {
+                search: filters.search, // Pertahankan search kalau ada
+                category: categorySlug,
+            },
+            { preserveState: true }
+        );
+    };
+
+    // Fungsi: Reset Filter (Tampilkan Semua)
+    const clearFilters = () => {
+        setSearchTerm("");
+        router.get("/");
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
             <Head title="Selamat Datang" />
 
-            {/* NAVBAR SEDERHANA */}
+            {/* Navbar (Sama kayak sebelumnya) */}
             <nav className="bg-white border-b sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16 items-center">
-                        {/* Logo */}
                         <div className="flex items-center gap-2">
-                            <div className="bg-primary/10 p-2 rounded-lg">
-                                <ShoppingBag className="w-6 h-6 text-primary" />
-                            </div>
-                            <span className="text-xl font-bold tracking-tight">
-                                E-Catalog UMKM
-                            </span>
+                            <Link href="/" className="flex items-center gap-2">
+                                <div className="bg-primary/10 p-2 rounded-lg">
+                                    <ShoppingBag className="w-6 h-6 text-primary" />
+                                </div>
+                                <span className="text-xl font-bold tracking-tight">
+                                    E-Catalog UMKM
+                                </span>
+                            </Link>
                         </div>
-
-                        {/* Menu Kanan (Login/Dashboard) */}
                         <div className="flex items-center gap-4">
                             {auth.user ? (
                                 <Link
@@ -41,7 +76,7 @@ export default function Welcome({ auth, products }) {
                                     }
                                 >
                                     <Button variant="outline">
-                                        <User className="mr-2 h-4 w-4" />
+                                        <User className="mr-2 h-4 w-4" />{" "}
                                         Dashboard
                                     </Button>
                                 </Link>
@@ -60,22 +95,83 @@ export default function Welcome({ auth, products }) {
                 </div>
             </nav>
 
-            {/* HERO SECTION */}
-            <div className="bg-white border-b py-16 text-center">
-                <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl mb-4">
-                    Temukan Produk UMKM Terbaik
+            {/* HERO & SEARCH SECTION */}
+            <div className="bg-white border-b pt-12 pb-8 text-center px-4">
+                <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl mb-4">
+                    Mau cari apa hari ini?
                 </h1>
-                <p className="max-w-xl mx-auto text-lg text-gray-500">
-                    Jelajahi ribuan produk unik dari penjual lokal terpercaya.
-                    Dukung ekonomi lokal dengan belanja di sini.
-                </p>
+
+                {/* SEARCH BAR */}
+                <form
+                    onSubmit={handleSearch}
+                    className="max-w-xl mx-auto flex gap-2 mb-8"
+                >
+                    <Input
+                        placeholder="Cari nasi goreng, kopi, keripik..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="h-12 text-lg"
+                    />
+                    <Button type="submit" size="lg" className="h-12 px-6">
+                        <Search className="w-5 h-5" />
+                    </Button>
+                </form>
+
+                {/* CATEGORY PILLS */}
+                <div className="flex flex-wrap justify-center gap-2 max-w-3xl mx-auto">
+                    {/* Tombol 'Semua' */}
+                    <Button
+                        variant={!filters.category ? "default" : "outline"}
+                        onClick={() => clearFilters()}
+                        className="rounded-full"
+                        size="sm"
+                    >
+                        Semua
+                    </Button>
+
+                    {/* Tombol Kategori dari DB */}
+                    {categories.map((cat) => (
+                        <Button
+                            key={cat.id}
+                            variant={
+                                filters.category === cat.slug
+                                    ? "default"
+                                    : "outline"
+                            }
+                            onClick={() =>
+                                handleCategory(
+                                    cat.slug === filters.category
+                                        ? null
+                                        : cat.slug
+                                )
+                            }
+                            className="rounded-full"
+                            size="sm"
+                        >
+                            {cat.name}
+                        </Button>
+                    ))}
+                </div>
             </div>
 
             {/* CATALOG SECTION */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold">Produk Terbaru</h2>
-                    {/* Nanti bisa tambah filter kategori di sini */}
+                    <h2 className="text-2xl font-bold">
+                        {filters.search
+                            ? `Hasil cari: "${filters.search}"`
+                            : "Katalog Produk"}
+                    </h2>
+                    {(filters.search || filters.category) && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearFilters}
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                            <X className="w-4 h-4 mr-1" /> Reset Filter
+                        </Button>
+                    )}
                 </div>
 
                 {products.length > 0 ? (
@@ -83,11 +179,10 @@ export default function Welcome({ auth, products }) {
                         {products.map((product) => (
                             <Link
                                 key={product.id}
-                                href={route("product.detail", product.slug)} // Sesi 9 nanti kita ganti ini ke Detail Produk
+                                href={route("product.detail", product.slug)}
                                 className="group block"
                             >
                                 <div className="bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
-                                    {/* Gambar Produk */}
                                     <div className="aspect-square bg-gray-100 relative overflow-hidden">
                                         {product.image ? (
                                             <img
@@ -101,8 +196,6 @@ export default function Welcome({ auth, products }) {
                                             </div>
                                         )}
                                     </div>
-
-                                    {/* Info Produk */}
                                     <div className="p-4">
                                         <p className="text-xs text-muted-foreground mb-1">
                                             {product.category?.name || "Umum"}
@@ -118,15 +211,6 @@ export default function Welcome({ auth, products }) {
                                                 Stok: {product.stock}
                                             </span>
                                         </div>
-
-                                        {/* Nama Toko */}
-                                        <div className="mt-3 pt-3 border-t flex items-center gap-2 text-xs text-gray-500">
-                                            <User className="w-3 h-3" />
-                                            <span className="truncate">
-                                                {product.seller?.name ||
-                                                    "Seller"}
-                                            </span>
-                                        </div>
                                     </div>
                                 </div>
                             </Link>
@@ -134,18 +218,24 @@ export default function Welcome({ auth, products }) {
                     </div>
                 ) : (
                     <div className="text-center py-20 bg-white rounded-xl border border-dashed">
-                        <ShoppingBag className="mx-auto h-12 w-12 text-gray-300" />
+                        <Search className="mx-auto h-12 w-12 text-gray-300" />
                         <h3 className="mt-2 text-sm font-semibold text-gray-900">
-                            Belum ada produk
+                            Tidak ditemukan
                         </h3>
                         <p className="mt-1 text-sm text-gray-500">
-                            Jadilah penjual pertama yang mengisi katalog ini!
+                            Coba kata kunci lain atau reset filter.
                         </p>
+                        <Button
+                            onClick={clearFilters}
+                            variant="outline"
+                            className="mt-4"
+                        >
+                            Tampilkan Semua Produk
+                        </Button>
                     </div>
                 )}
             </main>
 
-            {/* FOOTER */}
             <footer className="bg-white border-t mt-12 py-8 text-center text-sm text-gray-500">
                 &copy; {new Date().getFullYear()} E-Catalog UMKM. All rights
                 reserved.

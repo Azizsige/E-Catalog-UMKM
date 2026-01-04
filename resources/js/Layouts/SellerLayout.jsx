@@ -55,7 +55,11 @@ export default function SellerLayout({ children }) {
             icon: Package,
         }, // Icon Package import dari lucide-react
         { label: "Pesanan Masuk", href: "#", icon: ShoppingCart },
-        { label: "Pengaturan Toko", href: "#", icon: Settings },
+        {
+            label: "Pengaturan Toko",
+            href: route("seller.store.edit"),
+            icon: Settings,
+        },
     ];
 
     return (
@@ -82,6 +86,17 @@ export default function SellerLayout({ children }) {
                             {item.label}
                         </Link>
                     ))}
+                    {/* <Link
+                        href={route("seller.store.edit")}
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary ${
+                            route().current("seller.store.edit")
+                                ? "bg-muted text-primary"
+                                : "text-muted-foreground"
+                        }`}
+                    >
+                        <Settings className="h-4 w-4" />
+                        Pengaturan Toko
+                    </Link> */}
                 </nav>
             </aside>
 
