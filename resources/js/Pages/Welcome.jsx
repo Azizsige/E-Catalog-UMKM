@@ -1,12 +1,13 @@
-import { Head, Link, router } from "@inertiajs/react"; // Tambah router
-import { ShoppingBag, User, Search, X } from "lucide-react"; // Tambah icon Search & X
+import { Head, Link, router } from "@inertiajs/react";
+import { ShoppingBag, Search, X } from "lucide-react"; // 'User' dihapus karena sudah diurus Navbar
 import { Button } from "@/Components/ui/button";
-import { Input } from "@/Components/ui/input"; // Tambah Input
-import { useState } from "react"; // Tambah useState
+import { Input } from "@/Components/ui/input";
+import { useState } from "react";
+// Import Navbar Komponen kita
+import Navbar from "@/Components/Navbar";
 
-// Tambahkan props categories & filters
 export default function Welcome({ auth, products, categories, filters }) {
-    // State buat nyimpen apa yang diketik user
+    // --- LOGIC SEARCH & FILTER (TETAP SAMA) ---
     const [searchTerm, setSearchTerm] = useState(filters.search || "");
 
     const formatRupiah = (number) => {
@@ -17,32 +18,23 @@ export default function Welcome({ auth, products, categories, filters }) {
         }).format(number);
     };
 
-    // Fungsi: Eksekusi Pencarian
     const handleSearch = (e) => {
         e.preventDefault();
         router.get(
             "/",
-            {
-                search: searchTerm,
-                category: filters.category, // Pertahankan filter kategori kalau ada
-            },
+            { search: searchTerm, category: filters.category },
             { preserveState: true }
         );
     };
 
-    // Fungsi: Pilih Kategori
     const handleCategory = (categorySlug) => {
         router.get(
             "/",
-            {
-                search: filters.search, // Pertahankan search kalau ada
-                category: categorySlug,
-            },
+            { search: filters.search, category: categorySlug },
             { preserveState: true }
         );
     };
 
-    // Fungsi: Reset Filter (Tampilkan Semua)
     const clearFilters = () => {
         setSearchTerm("");
         router.get("/");
@@ -52,48 +44,9 @@ export default function Welcome({ auth, products, categories, filters }) {
         <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
             <Head title="Selamat Datang" />
 
-            {/* Navbar (Sama kayak sebelumnya) */}
-            <nav className="bg-white border-b sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16 items-center">
-                        <div className="flex items-center gap-2">
-                            <Link href="/" className="flex items-center gap-2">
-                                <div className="bg-primary/10 p-2 rounded-lg">
-                                    <ShoppingBag className="w-6 h-6 text-primary" />
-                                </div>
-                                <span className="text-xl font-bold tracking-tight">
-                                    E-Catalog UMKM
-                                </span>
-                            </Link>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            {auth.user ? (
-                                <Link
-                                    href={
-                                        auth.user.role === "admin"
-                                            ? route("admin.dashboard")
-                                            : route("seller.dashboard")
-                                    }
-                                >
-                                    <Button variant="outline">
-                                        <User className="mr-2 h-4 w-4" />{" "}
-                                        Dashboard
-                                    </Button>
-                                </Link>
-                            ) : (
-                                <div className="flex gap-2">
-                                    <Link href={route("login")}>
-                                        <Button variant="ghost">Masuk</Button>
-                                    </Link>
-                                    <Link href={route("register")}>
-                                        <Button>Daftar Toko</Button>
-                                    </Link>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </nav>
+            {/* --- BAGIAN INI YANG KITA GANTI --- */}
+            {/* Cukup panggil 1 baris ini, dia otomatis bawa Logo, Menu User, & Keranjang */}
+            <Navbar />
 
             {/* HERO & SEARCH SECTION */}
             <div className="bg-white border-b pt-12 pb-8 text-center px-4">
@@ -119,7 +72,6 @@ export default function Welcome({ auth, products, categories, filters }) {
 
                 {/* CATEGORY PILLS */}
                 <div className="flex flex-wrap justify-center gap-2 max-w-3xl mx-auto">
-                    {/* Tombol 'Semua' */}
                     <Button
                         variant={!filters.category ? "default" : "outline"}
                         onClick={() => clearFilters()}
@@ -129,7 +81,6 @@ export default function Welcome({ auth, products, categories, filters }) {
                         Semua
                     </Button>
 
-                    {/* Tombol Kategori dari DB */}
                     {categories.map((cat) => (
                         <Button
                             key={cat.id}

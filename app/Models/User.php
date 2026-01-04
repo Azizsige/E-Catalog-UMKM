@@ -56,6 +56,13 @@ class User extends Authenticatable
         return $this->hasMany(Product::class);
     }
 
+    // Relasi: User punya banyak item di Keranjang
+    public function carts()
+    {
+        return $this->hasMany(Cart::class); // Pastikan Model Cart terpanggil
+    }
+
+    // Relasi: User punya satu Toko (Kalau dia Seller) - Ini yg sblmnya udh ada
     public function store()
     {
         return $this->hasOne(Store::class);
