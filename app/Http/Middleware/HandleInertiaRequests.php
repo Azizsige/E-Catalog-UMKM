@@ -33,12 +33,25 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $request->user(),
+
+                'cart' => $request->user() ? [
+                    // Hitung total semua barang
+                    'count' => $request->user()->carts()->count(),
+                    
+                    // Ambil 5 barang terakhir buat preview di Popup Navbar
+                    // Kita perlu relasi 'product' buat ambil nama, gambar, harga
+                    'items' => $request->user()->carts()
+                                ->with('product')
+                                ->latest()
+                                ->take(5) // Cukup 5 aja biar ringan
+                                ->get()
+                ] : null,
             ],
             // PASTIKAN BAGIAN INI ADA DAN SAMA PERSIS:
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
                 'error'   => fn () => $request->session()->get('error'),
-            ],
+            ]
         ];
     }
 }
