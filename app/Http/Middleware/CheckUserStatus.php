@@ -33,7 +33,12 @@ public function handle(Request $request, Closure $next)
             if (!$request->is('approval')) {
                 return redirect()->route('approval.notice');
             }
-        }
+        } elseif ($user->status === 'rejected') {
+    // Kita arahkan ke halaman khusus penolakan
+    if (!$request->routeIs('seller.rejected')) {
+        return redirect()->route('seller.rejected');
+    }
+}
     }
 
     return $next($request);

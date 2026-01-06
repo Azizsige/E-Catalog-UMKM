@@ -53,6 +53,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/register', [SellerStoreController::class, 'edit'])->name('seller.register');
         Route::get('/store/settings', [SellerStoreController::class, 'edit'])->name('seller.store.edit');
         Route::post('/store/settings', [SellerStoreController::class, 'update'])->name('seller.store.update');
+        Route::get('/rejected', function () {
+    return Inertia::render('Seller/Rejected');
+})->name('seller.rejected')->middleware(['auth', 'role:seller']);
     });
 
     // B. AREA TERKUNCI (Wajib status 'approved')
