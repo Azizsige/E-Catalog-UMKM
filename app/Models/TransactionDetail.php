@@ -10,6 +10,13 @@ class TransactionDetail extends Model
     use HasFactory;
     protected $guarded = ['id'];
 
+    protected $fillable = [
+        'transaction_id',
+        'product_id',
+        'qty',
+        'price_at_transaction', // <--- PASTIIN INI ADA!
+    ];
+
     public function transaction()
     {
         return $this->belongsTo(Transaction::class);

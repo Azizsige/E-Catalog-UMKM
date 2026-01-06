@@ -18,16 +18,16 @@ class StoreController extends Controller
         $user = Auth::user();
         
         // 1. Cek apakah user punya toko?
-        // Kita pakai first() eksplisit biar pasti
-        $store = \App\Models\Store::where('user_id', $user->id)->first();
+        $store = Store::where('user_id', $user->id)->first();
 
-        // 2. Kalau bener-bener gak punya, baru buatkan.
+        // 2. Kalau bener-bener gak punya, baru buatkan (Self Healing)
         if (!$store) {
-            $store = \App\Models\Store::create([
+            $store = Store::create([
                 'user_id' => $user->id,
                 'name' => $user->name,
-                'slug' => \Illuminate\Support\Str::slug($user->name) . '-' . rand(100,999),
-                'phone_number' => $user->phone,
+                'slug' => Str::slug($user->name) . '-' . rand(100,999),
+                'phone_number' => $user->phone, // Pastikan di tabel user ada kolom phone, atau hapus baris ini jika error
+                'checkout_mode' => 'midtrans', // Default mode
             ]);
         }
 
@@ -36,7 +36,7 @@ class StoreController extends Controller
         ]);
     }
 
-    // 2. Proses Update Data Toko
+    // 2. Proses Update Data Toko (MERGED VERSION)
     public function update(Request $request)
     {
         $user = Auth::user();
@@ -44,45 +44,55 @@ class StoreController extends Controller
 
         // --- SELF HEALING (Jaga-jaga kalau toko belum ada saat di-save) ---
         if (!$store) {
-            $store = \App\Models\Store::create([
+            $store = Store::create([
                 'user_id' => $user->id,
                 'name' => $user->name,
                 'slug' => Str::slug($user->name) . '-' . rand(100,999),
-                'phone_number' => $user->phone,
+                'checkout_mode' => 'midtrans',
             ]);
         }
 
-        // Validasi Input
+        // --- VALIDASI (UPDATE: Tambah checkout_mode) ---
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'phone_number' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'logo' => 'nullable|image|max:1024', // Max 1MB
             'banner' => 'nullable|image|max:2048', // Max 2MB
+            
+            // LOGIC BARU: Validasi Mode Checkout
+            'checkout_mode' => 'required|in:midtrans,whatsapp',
+            // Jika pilih WA, nomor HP Wajib diisi
+            'phone_number' => 'nullable|required_if:checkout_mode,whatsapp|string|max:20', 
         ]);
 
-        $data = $request->only(['name', 'description', 'phone_number', 'address']);
+        // Ambil semua data input yang diperbolehkan
+        $data = $request->only([
+            'name', 
+            'description', 
+            'phone_number', 
+            'address', 
+            'checkout_mode' // <--- Jangan lupa masukkan ini
+        ]);
 
         // Update Slug otomatis kalau ganti nama
         if ($request->name !== $store->name) {
             $data['slug'] = Str::slug($request->name) . '-' . Str::random(3);
         }
 
-        // Handle Upload Logo
+        // Handle Upload Logo (Kode Lama Tetap Ada)
         if ($request->hasFile('logo')) {
-            // Hapus logo lama jika ada
             if ($store->logo) Storage::disk('public')->delete($store->logo);
             $data['logo'] = $request->file('logo')->store('stores/logos', 'public');
         }
 
-        // Handle Upload Banner
+        // Handle Upload Banner (Kode Lama Tetap Ada)
         if ($request->hasFile('banner')) {
-            // Hapus banner lama jika ada
             if ($store->banner) Storage::disk('public')->delete($store->banner);
             $data['banner'] = $request->file('banner')->store('stores/banners', 'public');
         }
 
+        // Eksekusi Update
         $store->update($data);
 
         return redirect()->back()->with('message', 'Pengaturan toko berhasil disimpan!');

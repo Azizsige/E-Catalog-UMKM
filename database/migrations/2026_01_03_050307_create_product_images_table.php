@@ -10,12 +10,14 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up(): void
-    {
-        Schema::create('product_images', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
-        });
-    }
+{
+    Schema::create('product_images', function (Blueprint $table) {
+        $table->id();
+        $table->foreignId('product_id')->constrained()->onDelete('cascade'); // <--- PASTIKAN INI ADA
+        $table->string('image_path');
+        $table->timestamps();
+    });
+}
 
     /**
      * Reverse the migrations.

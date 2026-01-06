@@ -7,6 +7,7 @@ use Illuminate\Http\Request; // <--- Dan ini
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Route;
 
 class ProductController extends Controller
 {
@@ -15,7 +16,8 @@ class ProductController extends Controller
     public function index(Request $request)
     {
         // Query Dasar
-        $query = Product::with(['category', 'seller'])
+        // PERBAIKAN 1: Ganti 'seller' menjadi 'store'
+        $query = Product::with(['category', 'store'])
             ->where('is_active', true);
 
         // 1. Logic Search (Kalau ada input search)
@@ -39,24 +41,30 @@ class ProductController extends Controller
         return Inertia::render('Welcome', [
             'products' => $products,
             'categories' => $categories,
-            // Balikin lagi filter yang dipilih ke frontend biar input gak reset
             'filters' => $request->only(['search', 'category']),
-            'canLogin' => \Illuminate\Support\Facades\Route::has('login'),
-            'canRegister' => \Illuminate\Support\Facades\Route::has('register'),
+            'canLogin' => Route::has('login'),
+            'canRegister' => Route::has('register'),
         ]);
     }
 
     public function show($slug)
     {
-        // Cari produk berdasarkan slug
-        // Load relasi seller & category
-        $product = Product::with(['category', 'seller.store'])
+        $product = Product::with(['category', 'store', 'images'])
             ->where('slug', $slug)
             ->where('is_active', true)
-            ->firstOrFail(); // Kalau gak ketemu, otomatis 404
+            ->firstOrFail();
+
+        // 👇 LOGIC BARU: AMBIL PRODUK SERUPA 👇
+        $relatedProducts = Product::where('category_id', $product->category_id)
+            ->where('id', '!=', $product->id) // Jangan tampilkan produk yg lagi dibuka
+            ->where('is_active', true)
+            ->limit(4) // Ambil 4 aja
+            ->inRandomOrder() // Acak biar fresh
+            ->get();
 
         return Inertia::render('Product/Show', [
-            'product' => $product
+            'product' => $product,
+            'relatedProducts' => $relatedProducts // <-- Kirim ke Props
         ]);
     }
 }

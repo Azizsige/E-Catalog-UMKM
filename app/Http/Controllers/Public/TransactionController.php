@@ -71,7 +71,7 @@ class TransactionController extends Controller
         $transactions = Transaction::with(['details.product', 'store'])
                         ->where('user_id', Auth::id())
                         ->orderBy('created_at', 'desc') // Yang terbaru paling atas
-                        ->get(); // Atau pakai ->paginate(10) kalau mau ada halaman
+                        ->paginate(5); // Atau pakai ->paginate(10) kalau mau ada halaman
 
         return Inertia::render('Transaction/Index', [
             'transactions' => $transactions
