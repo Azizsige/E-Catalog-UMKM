@@ -40,7 +40,7 @@ export default function Approval() {
                         as="button"
                         className={cn(
                             buttonVariants({ variant: "ghost" }),
-                            "w-full text-red-500 hover:text-red-600 hover:bg-red-50 justify-start"
+                            "w-full text-red-500 hover:text-red-600 hover:bg-red-50 justify-center"
                         )}
                     >
                         <LogOut className="mr-2 h-4 w-4" /> Keluar

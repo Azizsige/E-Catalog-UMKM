@@ -15,49 +15,39 @@ use Inertia\Response;
 
 class RegisteredUserController extends Controller
 {
-    /**
-     * Display the registration view.
-     */
     public function create(): Response
     {
         return Inertia::render('Auth/Register');
     }
 
-    /**
-     * Handle an incoming registration request.
-     *
-     * @throws \Illuminate\Validation\ValidationException
-     */
-    public function store(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
+    // app/Http/Controllers/Auth/RegisteredUserController.php
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+public function store(Request $request): RedirectResponse
+{
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
+        'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        'role' => 'required|in:customer,seller',
+    ]);
 
-        event(new Registered($user));
+    // 👇 LOGIKA STATUS DISINI 👇
+    $user = User::create([
+        'name' => $request->name,
+        'email' => $request->email,
+        'password' => Hash::make($request->password),
+        'role' => $request->role,
+        // Jika role seller, set status pending. Jika customer, set active.
+        'status' => $request->role === 'seller' ? 'pending' : 'active',
+    ]);
 
-        Auth::login($user);
+    event(new Registered($user));
+    Auth::login($user);
 
-        // --- LOGIKA BARU KITA ---
-$role = $user->role; // Ambil role user yang baru daftar
-
-if ($role === 'admin') {
-    return redirect(route('admin.dashboard'));
-}
-
-if ($role === 'seller') {
-    return redirect(route('seller.dashboard'));
-}
-
-return redirect('/');
-// ------------------------
+    if ($user->role === 'seller') {
+        return redirect()->route('seller.store.edit');
     }
+
+    return redirect(route('home'));
+}
 }

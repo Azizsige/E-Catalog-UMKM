@@ -10,6 +10,7 @@ import {
     Trash2,
     AlertTriangle,
     ShoppingBag,
+    ChevronRight,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/Components/ui/button";
@@ -90,7 +91,7 @@ export default function Navbar() {
                                 className="text-2xl font-bold text-primary flex items-center gap-2"
                             >
                                 <Store className="w-8 h-8 text-orange-600" />
-                                <span className="text-gray-900">
+                                <span className="text-gray-900 tracking-tighter">
                                     Juragan
                                     <span className="text-orange-600">
                                         {" "}
@@ -102,10 +103,9 @@ export default function Navbar() {
 
                         {/* MENU KANAN */}
                         <div className="flex items-center gap-4 sm:gap-6">
-                            {/* 1. KONDISI SUDAH LOGIN */}
                             {auth.user ? (
                                 <>
-                                    {/* ICON CART (Cuma Muncul jika role = customer) */}
+                                    {/* ICON CART */}
                                     {auth.user.role === "customer" && (
                                         <div className="relative" ref={cartRef}>
                                             <button
@@ -121,7 +121,9 @@ export default function Navbar() {
                                                             {auth.cart.count}
                                                         </span>
                                                     )}
-                                                Keranjang
+                                                <span className="hidden sm:inline font-medium">
+                                                    Keranjang
+                                                </span>
                                             </button>
 
                                             {/* DROPDOWN ISI KERANJANG */}
@@ -149,7 +151,7 @@ export default function Navbar() {
                                                         {auth.cart &&
                                                         auth.cart.items.length >
                                                             0 ? (
-                                                            <div className="divide-y">
+                                                            <div className="divide-y text-sm">
                                                                 {auth.cart.items.map(
                                                                     (item) => (
                                                                         <div
@@ -161,15 +163,10 @@ export default function Navbar() {
                                                                             <div className="w-12 h-12 bg-gray-100 rounded-md overflow-hidden flex-shrink-0 border">
                                                                                 <img
                                                                                     src={`/storage/${item.product.image}`}
-                                                                                    alt={
-                                                                                        item
-                                                                                            .product
-                                                                                            .name
-                                                                                    }
                                                                                     className="w-full h-full object-cover"
                                                                                 />
                                                                             </div>
-                                                                            <div className="flex-1 min-w-0">
+                                                                            <div className="flex-1 min-w-0 text-left">
                                                                                 <div className="flex justify-between items-start">
                                                                                     <p className="text-sm font-medium text-gray-900 truncate pr-6">
                                                                                         {
@@ -190,7 +187,7 @@ export default function Navbar() {
                                                                                     </button>
                                                                                 </div>
                                                                                 <div className="flex items-center justify-between mt-1">
-                                                                                    <span className="text-xs text-primary font-bold">
+                                                                                    <span className="text-xs text-orange-600 font-bold">
                                                                                         {formatRupiah(
                                                                                             item
                                                                                                 .product
@@ -275,7 +272,7 @@ export default function Navbar() {
                                                             }
                                                             className="w-full block"
                                                         >
-                                                            <Button className="w-full bg-primary hover:bg-orange-600">
+                                                            <Button className="w-full bg-orange-600 hover:bg-orange-700 shadow-md">
                                                                 Lihat Semua
                                                                 Keranjang
                                                             </Button>
@@ -286,7 +283,7 @@ export default function Navbar() {
                                         </div>
                                     )}
 
-                                    {/* PROFILE DROPDOWN (Semua Role) */}
+                                    {/* PROFILE DROPDOWN */}
                                     <div className="relative group">
                                         <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-all border border-transparent hover:border-gray-200 focus:outline-none">
                                             <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold border border-orange-200 uppercase">
@@ -297,13 +294,13 @@ export default function Navbar() {
                                                     {auth.user.name}
                                                 </p>
                                                 <p className="text-[10px] text-gray-500 capitalize leading-none mt-1">
-                                                    Role: {auth.user.role}
+                                                    {auth.user.role}
                                                 </p>
                                             </div>
                                         </button>
 
                                         {/* ISI DROPDOWN PROFILE */}
-                                        <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[60] invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200 origin-top-right">
+                                        <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[60] invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200 origin-top-right">
                                             <div className="px-4 py-3 bg-gray-50 border-b">
                                                 <p className="text-sm font-bold text-gray-900 truncate">
                                                     {auth.user.name}
@@ -313,13 +310,30 @@ export default function Navbar() {
                                                 </p>
                                             </div>
                                             <div className="p-2 space-y-1">
+                                                {/* --- PINTU PENDAFTARAN SELLER (CTA) --- */}
+                                                {auth.user.role ===
+                                                    "customer" && (
+                                                    <Link
+                                                        href={route(
+                                                            "seller.register"
+                                                        )}
+                                                        className="flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg transition-all font-bold mb-2 group/cta shadow-sm border border-orange-100"
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <Store className="w-4 h-4 transition-transform group-hover/cta:scale-110" />
+                                                            Mulai Berjualan
+                                                        </div>
+                                                        <ChevronRight className="w-3 h-3 opacity-50" />
+                                                    </Link>
+                                                )}
+
                                                 {auth.user.role ===
                                                 "customer" ? (
                                                     <Link
                                                         href={route(
                                                             "transactions.index"
                                                         )}
-                                                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors font-medium"
+                                                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
                                                     >
                                                         <ShoppingBag className="w-4 h-4 text-orange-600" />
                                                         Pesanan Saya
@@ -336,7 +350,7 @@ export default function Navbar() {
                                                                       "seller.dashboard"
                                                                   )
                                                         }
-                                                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors font-medium"
+                                                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
                                                     >
                                                         <User className="w-4 h-4 text-orange-600" />
                                                         Dashboard{" "}
@@ -361,16 +375,15 @@ export default function Navbar() {
                                     </div>
                                 </>
                             ) : (
-                                /* 2. KONDISI BELUM LOGIN */
                                 <div className="flex items-center gap-4">
                                     <Link
                                         href={route("login")}
-                                        className="text-sm font-medium text-gray-500 hover:text-gray-900"
+                                        className="text-sm font-medium text-gray-500 hover:text-gray-900 transition"
                                     >
                                         Masuk
                                     </Link>
                                     <Link href={route("register")}>
-                                        <Button className="bg-primary hover:bg-orange-600 h-9">
+                                        <Button className="bg-orange-600 hover:bg-orange-700 h-9 px-6 rounded-full shadow-lg shadow-orange-100">
                                             Daftar
                                         </Button>
                                     </Link>
