@@ -9,10 +9,10 @@ import {
     Store,
     ShieldCheck,
     Truck,
-    PlayCircle,
     ChevronLeft,
     ChevronRight,
     Play,
+    AlertCircle,
 } from "lucide-react";
 import { Button } from "@/Components/ui/button";
 
@@ -27,7 +27,6 @@ export default function ProductShow({ product, auth, relatedProducts }) {
     }
 
     // --- 2. MEDIA LOGIC (VIDEO + IMAGES) ---
-    // Helper: Ambil ID Youtube
     const getYoutubeId = (url) => {
         if (!url) return null;
         const regExp =
@@ -38,19 +37,20 @@ export default function ProductShow({ product, auth, relatedProducts }) {
 
     const videoId = getYoutubeId(product.video_url);
 
-    // Kita gabungkan Video dan Gambar menjadi satu array "mediaList"
-    // Urutan: Video (jika ada) -> Gambar Utama -> Gambar Galeri
+    // Kumpulkan semua media
     const mediaList = [];
 
+    // 1. Video (Jika ada)
     if (videoId) {
         mediaList.push({
             id: "video-main",
             type: "video",
             src: videoId,
-            thumb: product.image, // Thumbnail video pakai gambar produk
+            thumb: product.image, // Thumbnail video pakai gambar utama dulu
         });
     }
 
+    // 2. Gambar Utama
     mediaList.push({
         id: "img-main",
         type: "image",
@@ -58,28 +58,42 @@ export default function ProductShow({ product, auth, relatedProducts }) {
         thumb: product.image,
     });
 
+    // 3. Gallery Images
     if (product.images && product.images.length > 0) {
         product.images.forEach((img) => {
             mediaList.push({
                 id: img.id,
                 type: "image",
-                src: img.path,
-                thumb: img.path,
+                src: img.image_path,
+                thumb: img.image_path,
             });
         });
     }
 
     // --- STATE SLIDER ---
-    const [activeIndex, setActiveIndex] = useState(0); // Index media yang sedang tampil
-    const [isPlaying, setIsPlaying] = useState(false); // Status video lagi play atau tidak
-    const thumbnailRef = useRef(null); // Ref untuk scroll thumbnail
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const thumbnailRef = useRef(null);
 
-    // Reset video player kalau ganti slide
+    // Reset video player saat ganti slide
     useEffect(() => {
         setIsPlaying(false);
     }, [activeIndex]);
 
-    // Fungsi Next/Prev Main Slider
+    // Auto Scroll Thumbnail agar yang aktif selalu terlihat
+    useEffect(() => {
+        if (thumbnailRef.current) {
+            const activeThumb = thumbnailRef.current.children[activeIndex];
+            if (activeThumb) {
+                activeThumb.scrollIntoView({
+                    behavior: "smooth",
+                    block: "nearest",
+                    inline: "center",
+                });
+            }
+        }
+    }, [activeIndex]);
+
     const handleNext = () => {
         setActiveIndex((prev) =>
             prev === mediaList.length - 1 ? 0 : prev + 1
@@ -90,20 +104,6 @@ export default function ProductShow({ product, auth, relatedProducts }) {
         setActiveIndex((prev) =>
             prev === 0 ? mediaList.length - 1 : prev - 1
         );
-    };
-
-    // Fungsi Scroll Thumbnail
-    const scrollThumb = (direction) => {
-        if (thumbnailRef.current) {
-            const { current } = thumbnailRef;
-            const scrollAmount = 200; // Jarak scroll per klik
-
-            if (direction === "left") {
-                current.scrollLeft -= scrollAmount;
-            } else {
-                current.scrollLeft += scrollAmount;
-            }
-        }
     };
 
     // --- FORM & CART LOGIC ---
@@ -139,7 +139,6 @@ export default function ProductShow({ product, auth, relatedProducts }) {
         );
     };
 
-    // Variables Helper
     const isWhatsAppMode = product?.store?.checkout_mode === "whatsapp";
     const sellerPhone = product?.store?.phone_number;
     const waMessage = `Halo ${
@@ -171,14 +170,12 @@ export default function ProductShow({ product, auth, relatedProducts }) {
 
                     <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-8">
-                            {/* --- KOLOM KIRI: MEDIA SLIDER --- */}
-                            <div className="p-6 md:p-8 bg-white select-none">
-                                {/* 1. MAIN DISPLAY (LAYAR UTAMA) */}
+                            {/* --- KOLOM KIRI: MEDIA SLIDER + THUMBNAILS --- */}
+                            <div className="p-6 md:p-8 bg-white select-none flex flex-col gap-4">
+                                {/* 1. LAYAR UTAMA */}
                                 <div className="aspect-square rounded-xl overflow-hidden border bg-gray-100 relative group">
-                                    {/* LOGIC TAMPILAN MEDIA */}
                                     {mediaList[activeIndex].type === "video" ? (
                                         isPlaying ? (
-                                            // VIDEO PLAYER (Aktif setelah diklik)
                                             <iframe
                                                 className="w-full h-full"
                                                 src={`https://www.youtube.com/embed/${mediaList[activeIndex].src}?autoplay=1&rel=0`}
@@ -188,7 +185,6 @@ export default function ProductShow({ product, auth, relatedProducts }) {
                                                 allowFullScreen
                                             ></iframe>
                                         ) : (
-                                            // COVER VIDEO (Gambar Produk + Tombol Play)
                                             <div
                                                 className="w-full h-full relative cursor-pointer"
                                                 onClick={() =>
@@ -211,35 +207,79 @@ export default function ProductShow({ product, auth, relatedProducts }) {
                                             </div>
                                         )
                                     ) : (
-                                        // IMAGE DISPLAY
                                         <img
+                                            // PENTING: key ini memaksa React me-render ulang saat index berubah
+                                            key={activeIndex}
                                             src={`/storage/${mediaList[activeIndex].src}`}
                                             alt={product.name}
-                                            className="w-full h-full object-cover"
+                                            className="w-full h-full object-cover animate-in fade-in duration-300"
                                         />
                                     )}
 
-                                    {/* TOMBOL PREV & NEXT (MAIN SLIDER) */}
+                                    {/* NAVIGASI PREV & NEXT */}
                                     {mediaList.length > 1 && (
                                         <>
                                             <button
-                                                onClick={handlePrev}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white text-gray-800 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handlePrev();
+                                                }}
+                                                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white text-gray-800 rounded-full flex items-center justify-center shadow-md transition-all md:opacity-0 md:group-hover:opacity-100 z-10"
                                             >
                                                 <ChevronLeft className="w-6 h-6" />
                                             </button>
                                             <button
-                                                onClick={handleNext}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white text-gray-800 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleNext();
+                                                }}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white text-gray-800 rounded-full flex items-center justify-center shadow-md transition-all md:opacity-0 md:group-hover:opacity-100 z-10"
                                             >
                                                 <ChevronRight className="w-6 h-6" />
                                             </button>
                                         </>
                                     )}
                                 </div>
+
+                                {/* 2. THUMBNAIL SLIDER (DIBAGIAN BAWAH) */}
+                                {mediaList.length > 1 && (
+                                    <div
+                                        className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
+                                        ref={thumbnailRef}
+                                    >
+                                        {mediaList.map((media, index) => (
+                                            <button
+                                                key={`${media.id}-${index}`}
+                                                onClick={() =>
+                                                    setActiveIndex(index)
+                                                }
+                                                className={`relative w-20 h-20 shrink-0 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                                                    activeIndex === index
+                                                        ? "border-orange-600 ring-2 ring-orange-100 opacity-100"
+                                                        : "border-transparent opacity-60 hover:opacity-100"
+                                                }`}
+                                            >
+                                                <img
+                                                    src={`/storage/${media.thumb}`}
+                                                    alt="Thumb"
+                                                    className="w-full h-full object-cover"
+                                                />
+                                                {/* Ikon Play Kecil untuk Thumbnail Video */}
+                                                {media.type === "video" && (
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                                        <Play
+                                                            className="w-6 h-6 text-white drop-shadow-md"
+                                                            fill="currentColor"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
-                            {/* --- KOLOM KANAN: INFO PRODUK (TIDAK BERUBAH) --- */}
+                            {/* --- KOLOM KANAN: INFO PRODUK (TETAP SAMA) --- */}
                             <div className="p-6 md:p-8 md:border-l">
                                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
                                     {product.name}
@@ -260,8 +300,19 @@ export default function ProductShow({ product, auth, relatedProducts }) {
                                             Dijual oleh
                                         </p>
                                         <h3 className="font-bold text-gray-900">
-                                            {product.store?.name ||
-                                                "Juragan Seller"}
+                                            {product.store ? (
+                                                <Link
+                                                    href={route(
+                                                        "store.show",
+                                                        product.store.slug
+                                                    )}
+                                                    className="hover:text-orange-600 hover:underline transition-colors"
+                                                >
+                                                    {product.store.name}
+                                                </Link>
+                                            ) : (
+                                                "Juragan Seller"
+                                            )}
                                         </h3>
                                     </div>
                                     <div className="ml-auto">
@@ -377,8 +428,8 @@ export default function ProductShow({ product, auth, relatedProducts }) {
                                             <Truck className="w-4 h-4 mt-0.5 shrink-0" />
                                             <p>
                                                 Toko ini menggunakan{" "}
-                                                <b>Transaksi Manual</b>.
-                                                Pembayaran via WhatsApp.
+                                                <b>Transaksi Manual</b> via
+                                                WhatsApp.
                                             </p>
                                         </div>
                                     )}
@@ -387,11 +438,25 @@ export default function ProductShow({ product, auth, relatedProducts }) {
                         </div>
                     </div>
 
+                    {/* RELATED PRODUCTS */}
                     <div className="mt-12 border-t pt-10">
-                        <h2 className="text-xl font-bold text-gray-900 mb-6 px-1">
-                            Produk Lain yang Mungkin Kamu Suka
-                        </h2>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 px-1">
+                            <h2 className="text-xl font-bold text-gray-900">
+                                Produk Serupa Lainnya
+                            </h2>
 
+                            {/* TOMBOL LIHAT SEMUA (Link ke Filter Kategori) */}
+                            {product.category && (
+                                <Link
+                                    href={`/?category=${product.category.slug}`}
+                                    className="text-orange-600 font-medium hover:text-orange-700 hover:underline text-sm flex items-center gap-1"
+                                >
+                                    Lihat semua di kategori{" "}
+                                    {product.category.name}
+                                    <ChevronRight className="w-4 h-4" />
+                                </Link>
+                            )}
+                        </div>
                         {relatedProducts.length > 0 ? (
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 {relatedProducts.map((rel) => (

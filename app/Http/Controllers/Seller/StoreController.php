@@ -36,49 +36,41 @@ class StoreController extends Controller
     }
 
     public function update(Request $request)
-    {
-        $user = Auth::user();
-        $store = $user->store;
+{
+    $user = Auth::user();
+    $store = $user->store;
 
-        if (!$store) {
-            $store = Store::create([
-                'user_id' => $user->id,
-                'name' => $user->name,
-                'slug' => Str::slug($user->name) . '-' . rand(100,999),
-                'checkout_mode' => 'midtrans',
-            ]);
+    // 1. Validasi Input
+    $data = $request->validate([
+        'name' => 'required|string|max:255', // Pastikan form React kirim 'name', bukan 'store_name'
+        'address' => 'required|string',
+        'phone_number' => 'required|string',
+        'description' => 'nullable|string',
+        'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+    ]);
+
+    // 2. Handle Upload Logo (Jika ada)
+    if ($request->hasFile('logo')) {
+        // Hapus logo lama jika ada
+        if ($store->logo) {
+            Storage::disk('public')->delete($store->logo);
         }
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'address' => 'nullable|string',
-            'logo' => 'nullable|image|max:1024',
-            'banner' => 'nullable|image|max:2048',
-            'checkout_mode' => 'required|in:midtrans,whatsapp',
-            'phone_number' => 'nullable|required_if:checkout_mode,whatsapp|string|max:20', 
-        ]);
-
-        $data = $request->only(['name', 'description', 'phone_number', 'address', 'checkout_mode']);
-
-        if ($request->name !== $store->name) {
-            $data['slug'] = Str::slug($request->name) . '-' . Str::random(3);
-        }
-
-        if ($request->hasFile('logo')) {
-            if ($store->logo) Storage::disk('public')->delete($store->logo);
-            $data['logo'] = $request->file('logo')->store('stores/logos', 'public');
-        }
-
-        if ($request->hasFile('banner')) {
-            if ($store->banner) Storage::disk('public')->delete($store->banner);
-            $data['banner'] = $request->file('banner')->store('stores/banners', 'public');
-        }
-
-        $store->update($data);
-
-    // Ubah bagian ini:
-    return redirect()->route('approval.notice')
-        ->with('message', 'Profil toko berhasil disimpan! Mohon tunggu verifikasi admin.');
+        $data['logo'] = $request->file('logo')->store('store-logos', 'public');
     }
+
+    // 3. Update Slug (Biar URL tokonya ikut berubah kalau nama berubah)
+    // Cek apakah nama berubah?
+    if ($request->name !== $store->name) {
+        $data['slug'] = Str::slug($request->name) . '-' . Str::random(5);
+    }
+
+    // 4. Update Database
+    $store->update($data); 
+
+    // 5. Reset Status & Redirect
+    $user->update(['status' => 'pending']);
+
+    return redirect()->route('approval.notice')
+        ->with('message', 'Perbaikan data disimpan!');
+}
 }
