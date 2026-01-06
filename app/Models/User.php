@@ -25,6 +25,7 @@ class User extends Authenticatable
         'status', // <--- TAMBAHKAN INI
         'avatar_url', // (Opsional, kalau kemarin sempet nambahin)
         'phone',
+        'status'
     ];
 
     /**
