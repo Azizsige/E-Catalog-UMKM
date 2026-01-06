@@ -14,11 +14,20 @@ class CartController extends Controller
     // Masukkan barang ke keranjang
     public function store(Request $request)
     {
-        // 1. Pastikan User Login
+        // 1. Jika User Belum Login
         if (!Auth::check()) {
-            return redirect()->route('login')->with('message', 'Silakan login dulu buat belanja ya!');
+            // Simpan data item ini ke session sementara
+            session(['pending_cart' => [
+                'product_id' => $request->product_id,
+                'qty' => $request->qty,
+                'is_buy_now' => $request->boolean('is_buy_now')
+            ]]);
+
+            // Redirect ke halaman login (Stop proses disini)
+            return redirect()->route('login');
         }
 
+        // --- JIKA SUDAH LOGIN (Logic di bawah ini TETAP SAMA, tidak ada yang dibuang) ---
         $user = Auth::user();
         
         // 2. Validasi Input
@@ -27,30 +36,41 @@ class CartController extends Controller
             'qty' => 'required|integer|min:1'
         ]);
 
-        // 3. Cek Stok Produk (Opsional tapi penting)
-        $product = Product::findOrFail($request->product_id);
+        // 3. Cek Stok Produk
+        $product = \App\Models\Product::findOrFail($request->product_id); // Tambahkan \App\Models jika perlu
         if ($product->stock < $request->qty) {
             return back()->withErrors(['qty' => 'Stok tidak cukup!']);
         }
 
-        // 4. Cek apakah barang ini SUDAH ADA di keranjang user?
-        $existingCart = Cart::where('user_id', $user->id)
-                            ->where('product_id', $product->id)
-                            ->first();
+        $existingCart = \App\Models\Cart::where('user_id', $user->id)
+            ->where('product_id', $request->product_id)
+            ->first();
 
+        // 4. Update atau Create di Database
         if ($existingCart) {
-            // SKENARIO A: Barang udah ada -> Tambahkan Qty
-            $existingCart->increment('qty', $request->qty);
+            // SKENARIO A: Barang Sudah Ada -> Tambah Qty
+            $existingCart->qty = $existingCart->qty + $request->qty;
+            
+            // Mentokin ke stok max
+            if ($existingCart->qty > $product->stock) {
+                $existingCart->qty = $product->stock; 
+            }
+            
+            $existingCart->save();
         } else {
-            // SKENARIO B: Barang baru -> Buat baru
-            Cart::create([
+            // SKENARIO B: Barang Baru -> Create
+            \App\Models\Cart::create([
                 'user_id' => $user->id,
-                'product_id' => $product->id,
+                'product_id' => $request->product_id,
                 'qty' => $request->qty
             ]);
         }
 
-        // 5. Balikin User ke halaman sebelumnya dengan pesan sukses
+        // --- DIRECT REDIRECT (Logic Tiket Sekali Jalan) ---
+        if ($request->boolean('is_buy_now')) {
+            return redirect()->route('cart.index', ['checked' => $request->product_id]);
+        }
+
         return back()->with('message', 'Produk berhasil masuk keranjang! 🛒');
     }
 

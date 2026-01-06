@@ -54,7 +54,11 @@ export default function SellerLayout({ children }) {
             href: route("seller.products.index"),
             icon: Package,
         }, // Icon Package import dari lucide-react
-        { label: "Pesanan Masuk", href: "#", icon: ShoppingCart },
+        {
+            label: "Pesanan Masuk",
+            href: route("seller.transactions.index"),
+            icon: ShoppingCart,
+        },
         {
             label: "Pengaturan Toko",
             href: route("seller.store.edit"),

@@ -2,25 +2,33 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Store extends Model
 {
-    protected $fillable = [
-    'user_id', 
-    'name', // <--- WAJIB ADA!
-    'slug', 'description', 'address', 
-    'city_id', 'is_approved', 'balance',
-    'logo', 'banner', 'phone_number'
-];
+    use HasFactory;
 
-// Relasi: Toko dimiliki oleh User
+    protected $fillable = [
+        'user_id',
+        'name',
+        'slug',
+        'description',
+        'address',
+        'logo',
+        'banner',
+        // --- TAMBAHKAN 2 BARIS INI ---
+        'checkout_mode',
+        'phone_number', 
+    ];
+
+    // Relasi ke User
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    // Relasi: Toko punya banyak Produk (Opsional, buat jaga-jaga nanti)
+    // Relasi ke Product
     public function products()
     {
         return $this->hasMany(Product::class);

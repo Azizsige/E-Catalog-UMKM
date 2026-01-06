@@ -7,6 +7,7 @@ import {
     CheckCircle,
     XCircle,
 } from "lucide-react";
+import Pagination from "@/Components/Pagination";
 
 export default function TransactionIndex({ transactions }) {
     // Helper Format Rupiah
@@ -72,9 +73,9 @@ export default function TransactionIndex({ transactions }) {
                     </h1>
                 </div>
 
-                {transactions.length > 0 ? (
+                {transactions.data.length > 0 ? (
                     <div className="space-y-4">
-                        {transactions.map((transaction) => (
+                        {transactions.data.map((transaction) => (
                             <Link
                                 href={route(
                                     "transactions.show",
@@ -156,6 +157,10 @@ export default function TransactionIndex({ transactions }) {
                                 </div>
                             </Link>
                         ))}
+
+                        <div className="mt-6">
+                            <Pagination links={transactions.links} />
+                        </div>
                     </div>
                 ) : (
                     // Tampilan Jika Belum Ada Pesanan

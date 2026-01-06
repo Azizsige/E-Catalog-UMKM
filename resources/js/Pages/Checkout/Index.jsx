@@ -40,10 +40,17 @@ export default function CheckoutIndex({ carts, addresses, user }) {
     const handleSaveAddress = (e) => {
         e.preventDefault();
         post(route("checkout.address.store"), {
-            onSuccess: () => {
+            preserveScroll: true, // Biar gak scroll ke atas
+            onSuccess: (page) => {
+                console.log("Sukses simpan!", page); // Cek console
                 setIsAddingAddress(false);
                 reset();
-                // Opsional: window.location.reload();
+                // Otomatis pilih alamat yang baru dibuat (kalau mau canggih)
+                // setSelectedAddress(page.props.addresses[page.props.addresses.length - 1]);
+            },
+            onError: (errors) => {
+                console.error("Gagal Validasi:", errors); // Cek console kalau gagal
+                // alert("Ada data yang belum lengkap!"); // Opsional
             },
         });
     };
@@ -205,7 +212,18 @@ export default function CheckoutIndex({ carts, addresses, user }) {
                                                     )
                                                 }
                                                 placeholder="Contoh: Mas Joni"
+                                                className={
+                                                    errors.recipient_name
+                                                        ? "border-red-500"
+                                                        : ""
+                                                } // Merah kalau error
                                             />
+                                            {/* 👇 TAMBAHKAN INI UNTUK LIHAT ERROR */}
+                                            {errors.recipient_name && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    {errors.recipient_name}
+                                                </p>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="text-xs font-medium">
@@ -220,7 +238,17 @@ export default function CheckoutIndex({ carts, addresses, user }) {
                                                     )
                                                 }
                                                 placeholder="0812..."
+                                                className={
+                                                    errors.phone_number
+                                                        ? "border-red-500"
+                                                        : ""
+                                                }
                                             />
+                                            {errors.phone_number && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    {errors.phone_number}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                     <div>
@@ -236,7 +264,17 @@ export default function CheckoutIndex({ carts, addresses, user }) {
                                                 )
                                             }
                                             placeholder="Jl. Mawar No 12..."
+                                            className={
+                                                errors.address_line
+                                                    ? "border-red-500"
+                                                    : ""
+                                            }
                                         />
+                                        {errors.address_line && (
+                                            <p className="text-xs text-red-500 mt-1">
+                                                {errors.address_line}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
@@ -252,7 +290,17 @@ export default function CheckoutIndex({ carts, addresses, user }) {
                                                     )
                                                 }
                                                 placeholder="Jakarta Selatan"
+                                                className={
+                                                    errors.city
+                                                        ? "border-red-500"
+                                                        : ""
+                                                }
                                             />
+                                            {errors.city && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    {errors.city}
+                                                </p>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="text-xs font-medium">
@@ -267,7 +315,17 @@ export default function CheckoutIndex({ carts, addresses, user }) {
                                                     )
                                                 }
                                                 placeholder="12345"
+                                                className={
+                                                    errors.postal_code
+                                                        ? "border-red-500"
+                                                        : ""
+                                                }
                                             />
+                                            {errors.postal_code && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    {errors.postal_code}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex gap-2 justify-end mt-2">

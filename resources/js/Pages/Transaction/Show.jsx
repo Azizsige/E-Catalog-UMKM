@@ -13,9 +13,11 @@ import {
     Clock,
     XCircle,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import Swal from "sweetalert2";
 
 export default function TransactionShow({ transaction, clientKey }) {
+    const [isPayLoading, setIsPayLoading] = useState(false);
     // 1. Script Midtrans
     useEffect(() => {
         const script = document.createElement("script");
@@ -30,20 +32,54 @@ export default function TransactionShow({ transaction, clientKey }) {
 
     // 2. Handle Payment
     const handlePayment = () => {
+        // Jika sedang loading atau popup sudah muncul, jangan jalan lagi
+        if (isPayLoading) return;
+
         if (window.snap) {
+            setIsPayLoading(true); // Kunci tombol
+
             window.snap.pay(transaction.snap_token, {
                 onSuccess: function (result) {
-                    alert("Pembayaran Berhasil!");
-                    window.location.reload();
+                    setIsPayLoading(false);
+                    Swal.fire({
+                        title: "Pembayaran Berhasil!",
+                        text: "Terima kasih, pesanan Anda akan segera diproses.",
+                        icon: "success",
+                        confirmButtonColor: "#ea580c",
+                    }).then(() => {
+                        window.location.reload();
+                    });
                 },
                 onPending: function (result) {
-                    alert("Menunggu Pembayaran...");
+                    setIsPayLoading(false);
+                    Swal.fire({
+                        title: "Menunggu Pembayaran",
+                        text: "Silahkan selesaikan pembayaran sesuai instruksi.",
+                        icon: "info",
+                        confirmButtonColor: "#ea580c",
+                    });
                 },
                 onError: function (result) {
-                    alert("Pembayaran Gagal!");
+                    setIsPayLoading(false);
+                    Swal.fire({
+                        title: "Pembayaran Gagal",
+                        text: "Terjadi kesalahan saat memproses pembayaran.",
+                        icon: "error",
+                        confirmButtonColor: "#ea580c",
+                    });
                 },
                 onClose: function () {
-                    alert("Kamu menutup popup tanpa menyelesaikan pembayaran");
+                    setIsPayLoading(false); // Buka kunci jika user menutup popup
+                    const Toast = Swal.mixin({
+                        toast: true,
+                        position: "top-end",
+                        showConfirmButton: false,
+                        timer: 3000,
+                    });
+                    Toast.fire({
+                        icon: "warning",
+                        title: "Pembayaran belum diselesaikan",
+                    });
                 },
             });
         }
@@ -252,11 +288,17 @@ export default function TransactionShow({ transaction, clientKey }) {
                                 <div className="mt-8">
                                     <Button
                                         onClick={handlePayment}
-                                        // Ganti className ini (Perhatikan tanda seru '!' di depan bg)
-                                        className="w-full h-12 text-lg font-bold !bg-orange-600 hover:!bg-orange-700 text-white shadow-lg shadow-orange-200 transition-all transform hover:-translate-y-0.5"
+                                        disabled={isPayLoading}
+                                        className={
+                                            isPayLoading
+                                                ? "w-auto h-12 text-lg font-bold !bg-orange-600 hover:!bg-orange-700 text-white shadow-lg shadow-orange-200 transition-all transform hover:-translate-y-0.5"
+                                                : "w-full h-12 text-lg font-bold !bg-orange-600 hover:!bg-orange-700 text-white shadow-lg shadow-orange-200 transition-all transform hover:-translate-y-0.5"
+                                        }
                                     >
                                         <CreditCard className="w-5 h-5 mr-2" />
-                                        Bayar Sekarang
+                                        {isPayLoading
+                                            ? "Menghubungkan ke Midtrans..."
+                                            : "Bayar Sekarang"}
                                     </Button>
                                     <p className="text-xs text-center text-gray-400 mt-3">
                                         Transaksi aman dilindungi oleh Midtrans

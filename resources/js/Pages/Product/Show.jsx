@@ -1,22 +1,33 @@
-import { Head, Link, useForm } from "@inertiajs/react";
+import React, { useState, useEffect, useRef } from "react";
+import { Head, useForm, Link, router } from "@inertiajs/react";
+import Navbar from "@/Components/Navbar";
 import {
-    Store,
-    MessageCircle,
-    ChevronLeft,
-    ChevronRight,
-    Play,
     ShoppingCart,
     Minus,
     Plus,
+    MessageCircle,
+    Store,
+    ShieldCheck,
+    Truck,
+    PlayCircle,
+    ChevronLeft,
+    ChevronRight,
+    Play,
 } from "lucide-react";
 import { Button } from "@/Components/ui/button";
-import { useState } from "react";
-import Navbar from "@/Components/Navbar";
 
-export default function ProductShow({ product, auth }) {
-    // Terima props auth kalau mau cek login di frontend
+export default function ProductShow({ product, auth, relatedProducts }) {
+    // --- 1. GUARD CLAUSE ---
+    if (!product) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-gray-50">
+                <p className="text-gray-500 font-medium">Memuat Produk...</p>
+            </div>
+        );
+    }
 
-    // --- 1. LOGIKA VIDEO SLIDER (Sama seperti sebelumnya) ---
+    // --- 2. MEDIA LOGIC (VIDEO + IMAGES) ---
+    // Helper: Ambil ID Youtube
     const getYoutubeId = (url) => {
         if (!url) return null;
         const regExp =
@@ -24,293 +35,404 @@ export default function ProductShow({ product, auth }) {
         const match = url.match(regExp);
         return match && match[2].length === 11 ? match[2] : null;
     };
+
     const videoId = getYoutubeId(product.video_url);
 
+    // Kita gabungkan Video dan Gambar menjadi satu array "mediaList"
+    // Urutan: Video (jika ada) -> Gambar Utama -> Gambar Galeri
     const mediaList = [];
-    if (videoId)
+
+    if (videoId) {
         mediaList.push({
+            id: "video-main",
             type: "video",
-            content: videoId,
-            thumbnail: product.image,
+            src: videoId,
+            thumb: product.image, // Thumbnail video pakai gambar produk
         });
-    if (product.image)
-        mediaList.push({ type: "image", content: product.image });
+    }
 
-    const [currentSlide, setCurrentSlide] = useState(0);
-    const [isPlayingVideo, setIsPlayingVideo] = useState(false);
-
-    const nextSlide = () => {
-        setCurrentSlide((prev) =>
-            prev === mediaList.length - 1 ? 0 : prev + 1
-        );
-        setIsPlayingVideo(false);
-    };
-    const prevSlide = () => {
-        setCurrentSlide((prev) =>
-            prev === 0 ? mediaList.length - 1 : prev - 1
-        );
-        setIsPlayingVideo(false);
-    };
-
-    // --- 2. LOGIKA KERANJANG BELANJA (BARU) ---
-    const { data, setData, post, processing } = useForm({
-        product_id: product.id,
-        qty: 1, // Default beli 1
+    mediaList.push({
+        id: "img-main",
+        type: "image",
+        src: product.image,
+        thumb: product.image,
     });
 
-    const handleIncrement = () => {
-        if (data.qty < product.stock) {
-            setData("qty", data.qty + 1);
+    if (product.images && product.images.length > 0) {
+        product.images.forEach((img) => {
+            mediaList.push({
+                id: img.id,
+                type: "image",
+                src: img.path,
+                thumb: img.path,
+            });
+        });
+    }
+
+    // --- STATE SLIDER ---
+    const [activeIndex, setActiveIndex] = useState(0); // Index media yang sedang tampil
+    const [isPlaying, setIsPlaying] = useState(false); // Status video lagi play atau tidak
+    const thumbnailRef = useRef(null); // Ref untuk scroll thumbnail
+
+    // Reset video player kalau ganti slide
+    useEffect(() => {
+        setIsPlaying(false);
+    }, [activeIndex]);
+
+    // Fungsi Next/Prev Main Slider
+    const handleNext = () => {
+        setActiveIndex((prev) =>
+            prev === mediaList.length - 1 ? 0 : prev + 1
+        );
+    };
+
+    const handlePrev = () => {
+        setActiveIndex((prev) =>
+            prev === 0 ? mediaList.length - 1 : prev - 1
+        );
+    };
+
+    // Fungsi Scroll Thumbnail
+    const scrollThumb = (direction) => {
+        if (thumbnailRef.current) {
+            const { current } = thumbnailRef;
+            const scrollAmount = 200; // Jarak scroll per klik
+
+            if (direction === "left") {
+                current.scrollLeft -= scrollAmount;
+            } else {
+                current.scrollLeft += scrollAmount;
+            }
         }
     };
 
-    const handleDecrement = () => {
-        if (data.qty > 1) {
-            setData("qty", data.qty - 1);
-        }
+    // --- FORM & CART LOGIC ---
+    const { data, setData, post, processing } = useForm({
+        product_id: product.id,
+        qty: 1,
+    });
+
+    const formatRupiah = (number) => {
+        return new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+        }).format(number);
     };
 
-    const handleAddToCart = (e) => {
-        e.preventDefault();
+    const handleAddToCart = () => {
         post(route("cart.add"), {
             preserveScroll: true,
-            onSuccess: () => {
-                // Nanti kita bikin notifikasi toast di sini, sementara alert dulu atau biarkan flash message
-                // console.log("Berhasil masuk keranjang");
-            },
+            onSuccess: () => console.log("Masuk keranjang!"),
         });
     };
 
-    return (
-        <div className="min-h-screen bg-gray-50 font-sans">
-            <Head title={product.name} />
+    const handleBuyNow = () => {
+        router.post(
+            route("cart.add"),
+            {
+                product_id: product.id,
+                qty: data.qty,
+                is_buy_now: true,
+            },
+            { preserveScroll: true }
+        );
+    };
 
-            {/* 2. PASANG NAVBAR DISINI */}
+    // Variables Helper
+    const isWhatsAppMode = product?.store?.checkout_mode === "whatsapp";
+    const sellerPhone = product?.store?.phone_number;
+    const waMessage = `Halo ${
+        product?.store?.name || "Seller"
+    }, saya tertarik dengan produk *${product.name}* seharga ${formatRupiah(
+        product.price
+    )}. Apakah stok masih ready?`;
+    const waLink = `https://wa.me/62${sellerPhone}?text=${encodeURIComponent(
+        waMessage
+    )}`;
+
+    return (
+        <>
+            <Head title={product.name} />
             <Navbar />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Breadcrumb */}
-                <div className="mb-6">
-                    <Link
-                        href="/"
-                        className="text-sm text-gray-500 hover:text-primary flex items-center gap-1"
-                    >
-                        &larr; Kembali ke Home
-                    </Link>
-                </div>
+            <div className="bg-gray-50 min-h-screen py-8">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    {/* BREADCRUMB */}
+                    <div className="text-sm text-gray-500 mb-4 flex gap-2">
+                        <Link href="/" className="hover:text-orange-600">
+                            Beranda
+                        </Link>
+                        <span>/</span>
+                        <span className="text-gray-900 font-medium truncate">
+                            {product.name}
+                        </span>
+                    </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-8">
-                        {/* --- KOLOM KIRI: SLIDER MEDIA (Kode Sama) --- */}
-                        <div className="p-6 md:p-8 bg-gray-50/50 flex flex-col justify-start">
-                            <div className="relative aspect-square bg-white rounded-xl border overflow-hidden shadow-sm group">
-                                {mediaList[currentSlide].type === "video" ? (
-                                    isPlayingVideo ? (
-                                        <iframe
-                                            className="w-full h-full"
-                                            src={`https://www.youtube.com/embed/${mediaList[currentSlide].content}?autoplay=1`}
-                                            title="Product Video"
-                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                            allowFullScreen
-                                        ></iframe>
-                                    ) : (
-                                        <div
-                                            className="w-full h-full relative cursor-pointer group-hover:opacity-95 transition-opacity"
-                                            onClick={() =>
-                                                setIsPlayingVideo(true)
-                                            }
-                                        >
-                                            <img
-                                                src={`/storage/${mediaList[currentSlide].thumbnail}`}
-                                                className="w-full h-full object-cover"
-                                            />
-                                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                                                <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-lg animate-pulse group-hover:scale-110 transition-transform">
-                                                    <Play className="w-8 h-8 text-white fill-white ml-1" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                ) : (
-                                    <img
-                                        src={`/storage/${mediaList[currentSlide].content}`}
-                                        className="w-full h-full object-cover"
-                                    />
-                                )}
-
-                                {mediaList.length > 1 && (
-                                    <>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                prevSlide();
-                                            }}
-                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <ChevronLeft className="w-6 h-6" />
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                nextSlide();
-                                            }}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <ChevronRight className="w-6 h-6" />
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                            {mediaList.length > 1 && (
-                                <div className="flex justify-center gap-2 mt-4">
-                                    {mediaList.map((_, index) => (
-                                        <button
-                                            key={index}
-                                            onClick={() => {
-                                                setCurrentSlide(index);
-                                                setIsPlayingVideo(false);
-                                            }}
-                                            className={`w-2.5 h-2.5 rounded-full transition-all ${
-                                                currentSlide === index
-                                                    ? "bg-primary w-6"
-                                                    : "bg-gray-300 hover:bg-gray-400"
-                                            }`}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* --- KOLOM KANAN: INFORMASI & ACTION --- */}
-                        <div className="p-6 md:p-8 flex flex-col h-full">
-                            <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full w-fit mb-4">
-                                {product.category?.name || "Umum"}
-                            </span>
-
-                            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                                {product.name}
-                            </h1>
-                            <p className="text-2xl font-bold text-primary mb-6">
-                                {new Intl.NumberFormat("id-ID", {
-                                    style: "currency",
-                                    currency: "IDR",
-                                }).format(product.price)}
-                            </p>
-
-                            <hr className="border-gray-100 mb-6" />
-
-                            <div className="prose prose-sm text-gray-600 mb-8 flex-1">
-                                <h3 className="text-gray-900 font-semibold mb-2">
-                                    Deskripsi Produk
-                                </h3>
-                                <p className="whitespace-pre-line leading-relaxed">
-                                    {product.description}
-                                </p>
-                            </div>
-
-                            {/* --- BAGIAN ACTION BARU --- */}
-                            <div className="mt-auto space-y-6">
-                                {/* 1. INFO TOKO */}
-                                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border">
-                                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-gray-400 border">
-                                        <Store className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500">
-                                            Dijual oleh:
-                                        </p>
-                                        <Link
-                                            href={route(
-                                                "store.show",
-                                                product.seller.store?.slug ||
-                                                    "error"
-                                            )}
-                                            className="font-semibold text-gray-900 hover:text-primary hover:underline"
-                                        >
-                                            {product.seller.store?.name ||
-                                                product.seller.name}
-                                        </Link>
-                                    </div>
-                                </div>
-
-                                {/* 2. FORM BELANJA (QTY & BUTTONS) */}
-                                <div className="flex flex-col gap-4">
-                                    {/* Baris Quantity */}
-                                    <div className="flex items-center gap-4">
-                                        <span className="text-sm font-medium text-gray-700">
-                                            Jumlah:
-                                        </span>
-                                        <div className="flex items-center border rounded-lg bg-white">
-                                            <button
-                                                onClick={handleDecrement}
-                                                className="p-3 hover:bg-gray-100 text-gray-600 rounded-l-lg transition-colors"
-                                                disabled={data.qty <= 1}
-                                            >
-                                                <Minus className="w-4 h-4" />
-                                            </button>
-                                            <input
-                                                type="text"
-                                                className="w-12 text-center border-none p-0 focus:ring-0 text-sm font-semibold"
-                                                value={data.qty}
-                                                readOnly
-                                            />
-                                            <button
-                                                onClick={handleIncrement}
-                                                className="p-3 hover:bg-gray-100 text-gray-600 rounded-r-lg transition-colors"
-                                                disabled={
-                                                    data.qty >= product.stock
+                    <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-8">
+                            {/* --- KOLOM KIRI: MEDIA SLIDER --- */}
+                            <div className="p-6 md:p-8 bg-white select-none">
+                                {/* 1. MAIN DISPLAY (LAYAR UTAMA) */}
+                                <div className="aspect-square rounded-xl overflow-hidden border bg-gray-100 relative group">
+                                    {/* LOGIC TAMPILAN MEDIA */}
+                                    {mediaList[activeIndex].type === "video" ? (
+                                        isPlaying ? (
+                                            // VIDEO PLAYER (Aktif setelah diklik)
+                                            <iframe
+                                                className="w-full h-full"
+                                                src={`https://www.youtube.com/embed/${mediaList[activeIndex].src}?autoplay=1&rel=0`}
+                                                title="YouTube video player"
+                                                frameBorder="0"
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                allowFullScreen
+                                            ></iframe>
+                                        ) : (
+                                            // COVER VIDEO (Gambar Produk + Tombol Play)
+                                            <div
+                                                className="w-full h-full relative cursor-pointer"
+                                                onClick={() =>
+                                                    setIsPlaying(true)
                                                 }
                                             >
-                                                <Plus className="w-4 h-4" />
+                                                <img
+                                                    src={`/storage/${mediaList[activeIndex].thumb}`}
+                                                    className="w-full h-full object-cover opacity-90"
+                                                    alt="Video Cover"
+                                                />
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black/10 hover:bg-black/20 transition-colors">
+                                                    <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                                                        <Play
+                                                            className="w-8 h-8 text-white ml-1"
+                                                            fill="currentColor"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    ) : (
+                                        // IMAGE DISPLAY
+                                        <img
+                                            src={`/storage/${mediaList[activeIndex].src}`}
+                                            alt={product.name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    )}
+
+                                    {/* TOMBOL PREV & NEXT (MAIN SLIDER) */}
+                                    {mediaList.length > 1 && (
+                                        <>
+                                            <button
+                                                onClick={handlePrev}
+                                                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white text-gray-800 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <ChevronLeft className="w-6 h-6" />
                                             </button>
-                                        </div>
-                                        <span className="text-xs text-gray-500">
-                                            Stok: {product.stock}
+                                            <button
+                                                onClick={handleNext}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white text-gray-800 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <ChevronRight className="w-6 h-6" />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* --- KOLOM KANAN: INFO PRODUK (TIDAK BERUBAH) --- */}
+                            <div className="p-6 md:p-8 md:border-l">
+                                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                                    {product.name}
+                                </h1>
+                                <div className="text-3xl font-bold text-orange-600 mb-6">
+                                    {formatRupiah(product.price)}
+                                </div>
+
+                                <hr className="border-gray-100 mb-6" />
+
+                                {/* Info Toko */}
+                                <div className="flex items-center gap-3 mb-6 p-4 bg-gray-50 rounded-xl">
+                                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
+                                        <Store className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-500">
+                                            Dijual oleh
+                                        </p>
+                                        <h3 className="font-bold text-gray-900">
+                                            {product.store?.name ||
+                                                "Juragan Seller"}
+                                        </h3>
+                                    </div>
+                                    <div className="ml-auto">
+                                        <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full flex items-center gap-1">
+                                            <ShieldCheck className="w-3 h-3" />{" "}
+                                            Terpercaya
                                         </span>
                                     </div>
+                                </div>
 
-                                    {/* Baris Tombol */}
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {/* Tombol Keranjang (Main Feature) */}
-                                        <Button
-                                            onClick={handleAddToCart}
-                                            disabled={processing}
-                                            className="h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-orange-200 shadow-lg"
-                                        >
-                                            {processing ? (
-                                                <span className="animate-spin mr-2">
-                                                    ⏳
+                                <div className="mb-8">
+                                    <h3 className="font-semibold text-gray-900 mb-2">
+                                        Deskripsi Produk
+                                    </h3>
+                                    <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line">
+                                        {product.description ||
+                                            "Tidak ada deskripsi."}
+                                    </p>
+                                </div>
+
+                                {/* ACTION AREA */}
+                                <div className="space-y-4">
+                                    {!isWhatsAppMode && (
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <span className="text-sm font-medium text-gray-700">
+                                                Jumlah:
+                                            </span>
+                                            <div className="flex items-center border rounded-md">
+                                                <button
+                                                    onClick={() =>
+                                                        setData(
+                                                            "qty",
+                                                            Math.max(
+                                                                1,
+                                                                data.qty - 1
+                                                            )
+                                                        )
+                                                    }
+                                                    className="p-2 hover:bg-gray-100 text-gray-500"
+                                                >
+                                                    <Minus className="w-4 h-4" />
+                                                </button>
+                                                <span className="w-12 text-center font-bold text-gray-900">
+                                                    {data.qty}
                                                 </span>
-                                            ) : (
-                                                <ShoppingCart className="w-5 h-5 mr-2" />
-                                            )}
-                                            {processing
-                                                ? "Memproses..."
-                                                : "Keranjang"}
-                                        </Button>
+                                                <button
+                                                    onClick={() =>
+                                                        setData(
+                                                            "qty",
+                                                            data.qty + 1
+                                                        )
+                                                    }
+                                                    className="p-2 hover:bg-gray-100 text-gray-500"
+                                                    disabled={
+                                                        data.qty >=
+                                                        product.stock
+                                                    }
+                                                >
+                                                    <Plus className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                            <span className="text-xs text-gray-500">
+                                                Stok: {product.stock}
+                                            </span>
+                                        </div>
+                                    )}
 
-                                        {/* Tombol WhatsApp (Secondary) */}
-                                        <a
-                                            href={`https://wa.me/${product.seller.phone}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="w-full"
-                                        >
-                                            <Button
-                                                variant="outline"
-                                                className="w-full h-12 border-green-600 text-green-600 hover:bg-green-50"
+                                    <div className="flex flex-col sm:flex-row gap-3">
+                                        {isWhatsAppMode ? (
+                                            <a
+                                                href={waLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="w-full"
                                             >
-                                                <MessageCircle className="w-5 h-5 mr-2" />
-                                                Beli Langsung
-                                            </Button>
-                                        </a>
+                                                <Button className="w-full h-12 text-lg bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2">
+                                                    <MessageCircle className="w-5 h-5" />{" "}
+                                                    Chat Penjual & Beli
+                                                </Button>
+                                            </a>
+                                        ) : (
+                                            <>
+                                                <Button
+                                                    variant="outline"
+                                                    className="flex-1 h-12 text-lg border-orange-600 text-orange-600 hover:bg-orange-50"
+                                                    onClick={handleAddToCart}
+                                                    disabled={
+                                                        processing ||
+                                                        product.stock < 1
+                                                    }
+                                                >
+                                                    <ShoppingCart className="w-5 h-5 mr-2" />
+                                                    {processing
+                                                        ? "Memproses..."
+                                                        : "+ Keranjang"}
+                                                </Button>
+                                                <Button
+                                                    className="flex-1 h-12 text-lg bg-orange-600 hover:bg-orange-700"
+                                                    onClick={handleBuyNow}
+                                                    disabled={
+                                                        processing ||
+                                                        product.stock < 1
+                                                    }
+                                                >
+                                                    Beli Sekarang
+                                                </Button>
+                                            </>
+                                        )}
                                     </div>
+
+                                    {isWhatsAppMode && (
+                                        <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-xs flex gap-2 items-start">
+                                            <Truck className="w-4 h-4 mt-0.5 shrink-0" />
+                                            <p>
+                                                Toko ini menggunakan{" "}
+                                                <b>Transaksi Manual</b>.
+                                                Pembayaran via WhatsApp.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <div className="mt-12 border-t pt-10">
+                        <h2 className="text-xl font-bold text-gray-900 mb-6 px-1">
+                            Produk Lain yang Mungkin Kamu Suka
+                        </h2>
+
+                        {relatedProducts.length > 0 ? (
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {relatedProducts.map((rel) => (
+                                    <Link
+                                        key={rel.id}
+                                        href={route("product.detail", rel.slug)}
+                                        className="bg-white border rounded-xl overflow-hidden hover:shadow-md transition-all group"
+                                    >
+                                        <div className="aspect-square bg-gray-100 overflow-hidden">
+                                            <img
+                                                src={`/storage/${rel.image}`}
+                                                alt={rel.name}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                            />
+                                        </div>
+                                        <div className="p-3">
+                                            <h3 className="font-medium text-gray-900 truncate text-sm">
+                                                {rel.name}
+                                            </h3>
+                                            <p className="font-bold text-orange-600 mt-1">
+                                                {formatRupiah(rel.price)}
+                                            </p>
+                                            <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+                                                <Store className="w-3 h-3" />
+                                                <span className="truncate">
+                                                    {product.store?.name ||
+                                                        "UMKM"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-gray-500 text-sm">
+                                Belum ada produk sejenis.
+                            </p>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 }

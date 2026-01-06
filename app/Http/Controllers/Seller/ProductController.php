@@ -39,40 +39,55 @@ class ProductController extends Controller
     // 2. Proses Simpan Data
     public function store(Request $request)
     {
-        // Validasi Input
         $request->validate([
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
             'price' => 'required|numeric|min:0',
-            'stock' => 'required|integer|min:0',
-            'description' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', // Max 2MB
-            'video_url' => 'nullable|url|max:255',
+            'stock' => 'required|numeric|min:0',
+            'description' => 'required|string',
+            'video_url' => 'nullable|url',
+            
+            // Validasi Main Image (Wajib 1)
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            
+            // Validasi Gallery (Boleh banyak, max 5 foto misalnya)
+            'extra_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
 
-        // Handle Upload Gambar
-        $imagePath = null;
+        // 1. Upload Main Image (Thumbnail Utama)
+        $mainImagePath = null;
         if ($request->hasFile('image')) {
-            // Simpan ke folder 'products' di storage public
-            $imagePath = $request->file('image')->store('products', 'public');
+            $mainImagePath = $request->file('image')->store('products', 'public');
         }
 
-        // Simpan ke Database
-        Product::create([
-            'user_id' => Auth::id(), // Otomatis set pemiliknya seller yg login
+        // 2. Simpan Data Produk Utama
+        $product = \App\Models\Product::create([
+            'user_id'     => auth()->id(),
             'category_id' => $request->category_id,
-            'name' => $request->name,
-            'slug' => Str::slug($request->name) . '-' . Str::random(5), // Slug unik
-            'price' => $request->price,
-            'stock' => $request->stock,
+            'name'        => $request->name,
+            'slug'        => Str::slug($request->name) . '-' . Str::random(5),
+            'price'       => $request->price,
+            'stock'       => $request->stock,
             'description' => $request->description,
-            'image' => $imagePath,
-            'video_url' => $request->video_url,
-            'is_active' => true,
+            'image'       => $mainImagePath, // Foto Utama
+            'video_url'   => $request->video_url,
+            'is_active'   => true,
         ]);
 
-        return redirect()->route('seller.products.index')
-            ->with('message', 'Produk berhasil ditambahkan!');
+        // 3. Upload Gallery Images (Looping)
+        if ($request->hasFile('extra_images')) {
+            foreach ($request->file('extra_images') as $file) {
+                $path = $file->store('product_galleries', 'public');
+                
+                // Masukkan ke tabel product_images
+                \App\Models\ProductImage::create([
+                    'product_id' => $product->id,
+                    'image_path' => $path
+                ]);
+            }
+        }
+
+        return redirect()->route('seller.products.index')->with('message', 'Produk berhasil ditambahkan!');
     }
 
     // 3. Tampilkan Form Edit
@@ -83,6 +98,8 @@ class ProductController extends Controller
             abort(403);
         }
 
+        $product->load('images'); 
+
         return Inertia::render('Seller/Product/Edit', [
             'product' => $product,
             'categories' => Category::all()
@@ -92,39 +109,70 @@ class ProductController extends Controller
     // 4. Proses Update Data
     public function update(Request $request, Product $product)
     {
-        // Security Check
+        // 1. Security Check
         if ($product->user_id !== Auth::id()) {
             abort(403);
         }
 
+        // 2. Validasi
         $request->validate([
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
             'price' => 'required|numeric|min:0',
             'stock' => 'required|integer|min:0',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'video_url' => 'nullable|url|max:255',
+            'video_url' => 'nullable|url',
+            
+            // Validasi Image
+            'image' => 'nullable|image|max:2048', // Main Image
+            'extra_images.*' => 'nullable|image|max:2048', // Gallery Baru
+            'deleted_images' => 'nullable|array', // List ID Gallery yg dihapus
         ]);
 
+        // 3. Update Data Utama (Tanpa Gambar dulu)
         $data = $request->only(['name', 'category_id', 'price', 'stock', 'description', 'video_url']);
-
-        // Jika user upload gambar baru
-        if ($request->hasFile('image')) {
-            // Hapus gambar lama jika ada
-            if ($product->image) {
-                Storage::disk('public')->delete($product->image);
-            }
-            // Upload gambar baru
-            $data['image'] = $request->file('image')->store('products', 'public');
-        }
-
-        // Update slug jika nama berubah
+        
+        // Update slug cuma kalau nama berubah
         if ($request->name !== $product->name) {
             $data['slug'] = Str::slug($request->name) . '-' . Str::random(5);
         }
 
+        // 4. Handle Ganti Main Image (Thumbnail)
+        if ($request->hasFile('image')) {
+            // Hapus file lama di storage
+            if ($product->image) {
+                Storage::disk('public')->delete($product->image);
+            }
+            // Upload baru
+            $data['image'] = $request->file('image')->store('products', 'public');
+        }
+
         $product->update($data);
+
+        // 5. Handle Hapus Galeri Lama (Sesuai request frontend)
+        if ($request->deleted_images) {
+            foreach ($request->deleted_images as $imageId) {
+                $gallery = \App\Models\ProductImage::find($imageId);
+                // Pastikan gambar ini beneran punya produk ini (Security)
+                if ($gallery && $gallery->product_id == $product->id) {
+                    // Hapus file fisik
+                    Storage::disk('public')->delete($gallery->image_path);
+                    // Hapus record DB
+                    $gallery->delete();
+                }
+            }
+        }
+
+        // 6. Handle Tambah Galeri Baru
+        if ($request->hasFile('extra_images')) {
+            foreach ($request->file('extra_images') as $file) {
+                $path = $file->store('product_galleries', 'public');
+                \App\Models\ProductImage::create([
+                    'product_id' => $product->id,
+                    'image_path' => $path
+                ]);
+            }
+        }
 
         return redirect()->route('seller.products.index')
             ->with('message', 'Produk berhasil diperbarui!');
