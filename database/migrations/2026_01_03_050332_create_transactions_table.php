@@ -22,7 +22,8 @@ return new class extends Migration
         $table->string('resi_number')->nullable();
         
         $table->enum('payment_status', ['pending', 'paid', 'expired', 'cancelled'])->default('pending');
-        $table->enum('order_status', ['pending', 'processing', 'shipped', 'done', 'cancelled'])->default('pending');
+        // GANTI 'done' JADI 'completed'
+$table->enum('order_status', ['pending', 'processing', 'shipped', 'completed', 'cancelled'])->default('pending');
         
         $table->string('snap_token')->nullable(); // Midtrans
         $table->timestamps();

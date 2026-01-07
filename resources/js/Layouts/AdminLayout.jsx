@@ -20,8 +20,8 @@ import {
     LogOut,
     Tags,
 } from "lucide-react";
-import { Toaster } from "@/Components/ui/sonner"; // <--- Import Toaster
-import { toast } from "sonner"; // <--- Import function toast
+import { Toaster } from "@/Components/ui/sonner";
+import { toast } from "sonner";
 
 export default function AdminLayout({ children }) {
     const { auth, flash } = usePage().props;
@@ -29,31 +29,35 @@ export default function AdminLayout({ children }) {
 
     useEffect(() => {
         if (flash?.message) {
-            toast.success(flash.message); // Munculkan pesan sukses
+            toast.success(flash.message);
         }
         if (flash?.error) {
-            toast.error(flash.error); // Munculkan pesan error (opsional)
+            toast.error(flash.error);
         }
     }, [flash]);
 
-    // List Menu Sidebar
+    // 👇 UPDATE 1: Ganti 'href' jadi 'routeName' biar bisa dicek active-nya
     const navItems = [
         {
             label: "Dashboard",
-            href: route("admin.dashboard"),
+            routeName: "admin.dashboard",
             icon: LayoutDashboard,
         },
         {
             label: "Kategori",
-            href: route("admin.categories.index"),
+            routeName: "admin.categories.index",
             icon: Tags,
-        }, // <--- TAMBAHAN
+        },
         {
             label: "Validasi Toko",
-            href: route("admin.store-approval.index"),
+            routeName: "admin.store-approval.index",
             icon: ShoppingBag,
-        }, // Nanti kita buat
-        { label: "Manajemen User", href: "#", icon: Users }, // Nanti kita buat
+        },
+        {
+            label: "Manajemen User",
+            routeName: "admin.users.index",
+            icon: Users,
+        },
     ];
 
     return (
@@ -70,16 +74,27 @@ export default function AdminLayout({ children }) {
                     </Link>
                 </div>
                 <nav className="flex flex-col gap-2 px-4 text-sm font-medium">
-                    {navItems.map((item, index) => (
-                        <Link
-                            key={index}
-                            href={item.href}
-                            className="flex items-center gap-3 px-3 py-2 transition-all rounded-lg text-muted-foreground hover:text-primary hover:bg-muted"
-                        >
-                            <item.icon className="w-4 h-4" />
-                            {item.label}
-                        </Link>
-                    ))}
+                    {navItems.map((item, index) => {
+                        // 👇 UPDATE 2: Cek apakah route ini sedang aktif
+                        const isActive = route().current(item.routeName);
+
+                        return (
+                            <Link
+                                key={index}
+                                href={route(item.routeName)} // Generate link dari nama route
+                                className={`flex items-center gap-3 px-3 py-2 transition-all rounded-lg 
+                                    ${
+                                        isActive
+                                            ? "bg-primary text-primary-foreground font-bold shadow-md" // Style kalau AKTIF (Warna Gelap)
+                                            : "text-muted-foreground hover:text-primary hover:bg-muted" // Style kalau TIDAK AKTIF
+                                    }
+                                `}
+                            >
+                                <item.icon className="w-4 h-4" />
+                                {item.label}
+                            </Link>
+                        );
+                    })}
                 </nav>
             </aside>
 
@@ -108,16 +123,28 @@ export default function AdminLayout({ children }) {
                                     <Package2 className="w-6 h-6" />
                                     <span>E-Catalog</span>
                                 </Link>
-                                {navItems.map((item, index) => (
-                                    <Link
-                                        key={index}
-                                        href={item.href}
-                                        className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
-                                    >
-                                        <item.icon className="w-5 h-5" />
-                                        {item.label}
-                                    </Link>
-                                ))}
+                                {/* 👇 UPDATE 3: Terapkan logic yang sama untuk Mobile Sidebar */}
+                                {navItems.map((item, index) => {
+                                    const isActive = route().current(
+                                        item.routeName
+                                    );
+                                    return (
+                                        <Link
+                                            key={index}
+                                            href={route(item.routeName)}
+                                            className={`flex items-center gap-4 px-2.5 
+                                                ${
+                                                    isActive
+                                                        ? "text-foreground font-bold" // Active Mobile
+                                                        : "text-muted-foreground hover:text-foreground" // Inactive Mobile
+                                                }
+                                            `}
+                                        >
+                                            <item.icon className="w-5 h-5" />
+                                            {item.label}
+                                        </Link>
+                                    );
+                                })}
                             </nav>
                         </SheetContent>
                     </Sheet>

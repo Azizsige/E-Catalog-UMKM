@@ -77,4 +77,24 @@ class TransactionController extends Controller
             'transactions' => $transactions
         ]);
     }
+
+    public function update(Request $request, $id)
+    {
+        $transaction = Transaction::where('id', $id)
+            ->where('user_id', Auth::id()) // Security: Pastikan punya user yang login
+            ->firstOrFail();
+
+        // Cek apakah aksinya 'complete' (dikirim dari frontend)
+        if ($request->action == 'complete') {
+            
+            // Cek status dulu biar gak double update
+            if ($transaction->order_status == 'shipped') {
+                $transaction->update(['order_status' => 'completed']);
+            }
+            
+            return redirect()->back()->with('message', 'Terima kasih! Transaksi selesai.');
+        }
+        
+        return redirect()->back();
+    }
 }

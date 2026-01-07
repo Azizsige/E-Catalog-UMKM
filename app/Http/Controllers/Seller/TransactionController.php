@@ -47,21 +47,76 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function update(Request $request, Transaction $transaction)
+    public function update(Request $request, $id)
     {
-        // Security Check
-        if ($transaction->store_id !== Auth::user()->store->id) {
-            abort(403);
+        $transaction = Transaction::findOrFail($id);
+
+        // Validasi input dari Frontend
+        $request->validate([
+            'action_type' => 'required|string', // confirm_payment, input_resi, cancel
+            'resi_number' => 'nullable|string',
+        ]);
+
+        switch ($request->action_type) {
+            
+            // 1. TERIMA PEMBAYARAN (Pending -> Processing)
+            case 'confirm_payment':
+                $transaction->update([
+                    'order_status' => 'processing',
+                    'payment_status' => 'paid', // Tandai lunas
+                ]);
+                break;
+
+            // 2. INPUT RESI (Processing -> Shipped)
+            case 'input_resi':
+                $request->validate(['resi_number' => 'required']);
+                $transaction->update([
+                    'order_status' => 'shipped',
+                    'resi_number' => $request->resi_number,
+                ]);
+                break;
+
+            // 3. SELESAI MANUAL OLEH SELLER (Opsional / Darurat)
+            // (Hanya bisa kalau status sudah dikirim)
+            case 'complete':
+                if ($transaction->order_status == 'shipped') {
+                    $transaction->update(['order_status' => 'completed']);
+                }
+                break;
+
+            // 4. BATALKAN PESANAN
+            case 'cancel':
+                // Balikin Stok Produk (Looping details)
+                foreach ($transaction->transactionDetails as $detail) {
+                    $product = $detail->product;
+                    if ($product) {
+                        $product->increment('stock', $detail->qty);
+                    }
+                }
+                
+                $transaction->update([
+                    'order_status' => 'cancelled',
+                    'payment_status' => 'cancelled' // atau failed
+                ]);
+                break;
         }
 
-        $request->validate([
-            'order_status' => 'required|in:pending,processing,shipped,completed,cancelled'
-        ]);
+        return redirect()->back()->with('message', 'Status pesanan diperbarui!');
+    }
 
-        $transaction->update([
-            'order_status' => $request->order_status
-        ]);
+    public function printLabel($id)
+    {
+        // Ambil transaksi milik toko yang sedang login
+        $store = \App\Models\Store::where('user_id', \Illuminate\Support\Facades\Auth::id())->firstOrFail();
 
-        return back()->with('message', 'Status pesanan berhasil diperbarui!');
+        $transaction = \App\Models\Transaction::with(['user', 'details.product'])
+            ->where('store_id', $store->id)
+            ->where('id', $id)
+            ->firstOrFail();
+
+        return \Inertia\Inertia::render('Seller/Transaction/PrintLabel', [
+            'transaction' => $transaction,
+            'store' => $store
+        ]);
     }
 }

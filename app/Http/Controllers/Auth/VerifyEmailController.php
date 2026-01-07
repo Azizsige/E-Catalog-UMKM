@@ -14,14 +14,39 @@ class VerifyEmailController extends Controller
      */
     public function __invoke(EmailVerificationRequest $request): RedirectResponse
     {
+        // 1. Kalau user klik link tapi sebenernya udah verif sebelumnya
         if ($request->user()->hasVerifiedEmail()) {
-            return redirect()->intended(route('dashboard', absolute: false).'?verified=1');
+            return $this->redirectBasedOnRole($request->user());
         }
 
+        // 2. Proses Verifikasi (Update database)
         if ($request->user()->markEmailAsVerified()) {
             event(new Verified($request->user()));
         }
 
-        return redirect()->intended(route('dashboard', absolute: false).'?verified=1');
+        // 3. Redirect sesuai Role
+        return $this->redirectBasedOnRole($request->user());
+    }
+
+    /**
+     * Helper untuk menentukan tujuan redirect
+     */
+    protected function redirectBasedOnRole($user)
+    {
+        // Parameter ?verified=1 itu bawaan Laravel biar bisa nampilin notif sukses (opsional)
+        
+        if ($user->role === 'admin') {
+            return redirect()->intended(route('admin.dashboard') . '?verified=1');
+        }
+
+        if ($user->role === 'seller') {
+            // Arahkan ke dashboard seller. 
+            // Tenang, kalau statusnya masih 'pending', Middleware 'check.status' 
+            // kamu yang canggih itu akan otomatis membelokkan dia ke halaman tunggu.
+            return redirect()->intended(route('seller.dashboard') . '?verified=1');
+        }
+
+        // Default: Customer lempar ke Home
+        return redirect()->intended(route('home') . '?verified=1');
     }
 }
