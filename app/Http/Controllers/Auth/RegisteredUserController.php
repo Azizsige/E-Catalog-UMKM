@@ -48,6 +48,6 @@ public function store(Request $request): RedirectResponse
         return redirect()->route('seller.store.edit');
     }
 
-    return redirect(route('home'));
+    return redirect()->route('verification.notice');
 }
 }

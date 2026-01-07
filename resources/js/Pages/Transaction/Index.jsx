@@ -1,4 +1,4 @@
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, router } from "@inertiajs/react";
 import Navbar from "@/Components/Navbar";
 import {
     ShoppingBag,
@@ -6,15 +6,37 @@ import {
     Clock,
     CheckCircle,
     XCircle,
+    Truck,
+    Package,
 } from "lucide-react";
 import Pagination from "@/Components/Pagination";
 
 export default function TransactionIndex({ transactions }) {
+    // --- 1. HANDLE KONFIRMASI PESANAN DITERIMA ---
+    const handleCompleteOrder = (e, id) => {
+        e.preventDefault(); // Mencegah masuk ke link detail
+        e.stopPropagation(); // Stop bubbling event
+
+        if (
+            confirm(
+                "Pastikan barang sudah Anda terima dengan baik. Selesaikan pesanan?"
+            )
+        ) {
+            router.put(
+                route("my.orders.update", id),
+                {
+                    action: "complete",
+                },
+                {
+                    onSuccess: () => alert("Terima kasih! Transaksi selesai."),
+                }
+            );
+        }
+    };
+
     // Helper Format Rupiah
     const formatRupiah = (number) => {
-        // Pastikan inputnya angka, kalau error/kosong anggap 0
         const value = Number(number) || 0;
-
         return new Intl.NumberFormat("id-ID", {
             style: "currency",
             currency: "IDR",
@@ -33,41 +55,63 @@ export default function TransactionIndex({ transactions }) {
         });
     };
 
-    // Helper Status Badge
-    const getStatusBadge = (status) => {
-        switch (status) {
-            case "paid":
-                return (
-                    <span className="flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200">
-                        <CheckCircle className="w-3 h-3" /> LUNAS
-                    </span>
-                );
-            case "pending":
-                return (
-                    <span className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200">
-                        <Clock className="w-3 h-3" /> MENUNGGU PEMBAYARAN
-                    </span>
-                );
-            case "failed":
-            case "cancelled":
-                return (
-                    <span className="flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold border border-red-200">
-                        <XCircle className="w-3 h-3" /> GAGAL
-                    </span>
-                );
-            default:
-                return <span className="text-gray-500 text-xs">{status}</span>;
+    // Helper Status Badge (Updated untuk Order Status)
+    const getStatusBadge = (orderStatus, paymentStatus) => {
+        // Prioritas 1: Kalau Order Selesai/Dikirim/Batal
+        if (orderStatus === "completed") {
+            return (
+                <span className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-green-700 bg-green-100 border border-green-200 rounded-full">
+                    <CheckCircle className="w-3 h-3" /> SELESAI
+                </span>
+            );
         }
+        if (orderStatus === "shipped") {
+            return (
+                <span className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-purple-700 bg-purple-100 border border-purple-200 rounded-full">
+                    <Truck className="w-3 h-3" /> DIKIRIM
+                </span>
+            );
+        }
+        if (orderStatus === "processing") {
+            return (
+                <span className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-blue-700 bg-blue-100 border border-blue-200 rounded-full">
+                    <Package className="w-3 h-3" /> DIPROSES
+                </span>
+            );
+        }
+        if (orderStatus === "cancelled") {
+            return (
+                <span className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-red-700 bg-red-100 border border-red-200 rounded-full">
+                    <XCircle className="w-3 h-3" /> DIBATALKAN
+                </span>
+            );
+        }
+
+        // Prioritas 2: Cek Status Bayar (Kalau order masih Pending)
+        if (paymentStatus === "paid") {
+            return (
+                <span className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-green-700 bg-green-100 border border-green-200 rounded-full">
+                    <CheckCircle className="w-3 h-3" /> LUNAS
+                </span>
+            );
+        }
+
+        // Default: Menunggu Pembayaran
+        return (
+            <span className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-yellow-700 bg-yellow-100 border border-yellow-200 rounded-full">
+                <Clock className="w-3 h-3" /> MENUNGGU PEMBAYARAN
+            </span>
+        );
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-20">
+        <div className="min-h-screen pb-20 bg-gray-50">
             <Head title="Riwayat Pesanan" />
             <Navbar />
 
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div className="max-w-4xl px-4 py-10 mx-auto sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between mb-8">
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
                         <ShoppingBag className="w-8 h-8 text-primary" />
                         Riwayat Pesanan
                     </h1>
@@ -78,25 +122,25 @@ export default function TransactionIndex({ transactions }) {
                         {transactions.data.map((transaction) => (
                             <Link
                                 href={route(
-                                    "transactions.show",
+                                    "transactions.show", // Pastikan nama route ini benar di web.php (singular)
                                     transaction.id
                                 )}
                                 key={transaction.id}
-                                className="block bg-white rounded-xl border border-gray-200 hover:border-orange-500 hover:shadow-md transition-all duration-200 overflow-hidden group"
+                                className="relative block overflow-hidden transition-all duration-200 bg-white border border-gray-200 rounded-xl hover:border-orange-500 hover:shadow-md group"
                             >
                                 <div className="p-6">
                                     {/* Header Invoice */}
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                                    <div className="flex flex-col items-start justify-between gap-4 mb-4 sm:flex-row sm:items-center">
                                         <div>
-                                            <p className="text-xs font-bold text-gray-400 mb-1">
+                                            <p className="mb-1 text-xs font-bold text-gray-400">
                                                 NO. INVOICE
                                             </p>
-                                            <p className="text-sm font-mono font-bold text-gray-800">
+                                            <p className="font-mono text-sm font-bold text-gray-800">
                                                 #{transaction.invoice_code}
                                             </p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold text-gray-400 mb-1 sm:text-right">
+                                            <p className="mb-1 text-xs font-bold text-gray-400 sm:text-right">
                                                 TANGGAL
                                             </p>
                                             <p className="text-sm text-gray-600">
@@ -105,37 +149,61 @@ export default function TransactionIndex({ transactions }) {
                                                 )}
                                             </p>
                                         </div>
-                                        <div className="sm:text-right">
-                                            <p className="text-xs font-bold text-gray-400 mb-1">
+                                        <div className="flex flex-col items-end gap-2 sm:text-right">
+                                            <p className="mb-1 text-xs font-bold text-gray-400">
                                                 STATUS
                                             </p>
+                                            {/* Panggil Helper Badge Baru */}
                                             {getStatusBadge(
+                                                transaction.order_status,
                                                 transaction.payment_status
+                                            )}
+
+                                            {/* --- TOMBOL AKSI CEPAT (PESANAN DITERIMA) --- */}
+                                            {transaction.order_status ===
+                                                "shipped" && (
+                                                <button
+                                                    onClick={(e) =>
+                                                        handleCompleteOrder(
+                                                            e,
+                                                            transaction.id
+                                                        )
+                                                    }
+                                                    className="mt-1 flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors z-10 relative"
+                                                >
+                                                    <CheckCircle className="w-3 h-3" />{" "}
+                                                    PESANAN DITERIMA
+                                                </button>
                                             )}
                                         </div>
                                     </div>
 
-                                    <hr className="border-dashed border-gray-200 my-4" />
+                                    <hr className="my-4 border-gray-200 border-dashed" />
 
                                     {/* Summary Produk */}
-                                    <div className="flex justify-between items-center">
+                                    <div className="flex items-center justify-between">
                                         <div className="flex-1">
-                                            <h3 className="font-semibold text-gray-800 group-hover:text-primary transition-colors">
-                                                {transaction.details[0]?.product
-                                                    ?.name || "Produk dihapus"}
+                                            <h3 className="font-semibold text-gray-800 transition-colors group-hover:text-primary">
+                                                {transaction.details &&
+                                                transaction.details[0]?.product
+                                                    ? transaction.details[0]
+                                                          .product.name
+                                                    : "Produk dihapus"}
                                             </h3>
-                                            {transaction.details.length > 1 && (
-                                                <p className="text-xs text-gray-500 mt-1">
-                                                    +{" "}
-                                                    {transaction.details
-                                                        .length - 1}{" "}
-                                                    produk lainnya
-                                                </p>
-                                            )}
+                                            {transaction.details &&
+                                                transaction.details.length >
+                                                    1 && (
+                                                    <p className="mt-1 text-xs text-gray-500">
+                                                        +{" "}
+                                                        {transaction.details
+                                                            .length - 1}{" "}
+                                                        produk lainnya
+                                                    </p>
+                                                )}
                                         </div>
 
                                         <div className="text-right">
-                                            <p className="text-xs text-gray-500 mb-1">
+                                            <p className="mb-1 text-xs text-gray-500">
                                                 Total Belanja
                                             </p>
                                             <p className="text-lg font-bold text-primary">
@@ -150,7 +218,7 @@ export default function TransactionIndex({ transactions }) {
                                             </p>
                                         </div>
 
-                                        <div className="ml-4 pl-4 border-l hidden sm:block">
+                                        <div className="hidden pl-4 ml-4 border-l sm:block">
                                             <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary" />
                                         </div>
                                     </div>
@@ -164,20 +232,20 @@ export default function TransactionIndex({ transactions }) {
                     </div>
                 ) : (
                     // Tampilan Jika Belum Ada Pesanan
-                    <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                        <div className="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="py-20 text-center bg-white border border-gray-300 border-dashed rounded-xl">
+                        <div className="flex items-center justify-center w-20 h-20 mx-auto mb-4 rounded-full bg-orange-50">
                             <ShoppingBag className="w-10 h-10 text-orange-400 opacity-50" />
                         </div>
                         <h3 className="text-lg font-bold text-gray-900">
                             Belum ada pesanan
                         </h3>
-                        <p className="text-gray-500 mt-2 mb-6 max-w-sm mx-auto">
+                        <p className="max-w-sm mx-auto mt-2 mb-6 text-gray-500">
                             Kamu belum pernah belanja nih. Yuk cari barang
                             impianmu sekarang!
                         </p>
                         <Link
                             href="/"
-                            className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-sm font-medium rounded-full shadow-sm text-white bg-primary hover:bg-orange-600 transition-colors"
+                            className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white transition-colors border border-transparent rounded-full shadow-sm bg-primary hover:bg-orange-600"
                         >
                             Mulai Belanja
                         </Link>

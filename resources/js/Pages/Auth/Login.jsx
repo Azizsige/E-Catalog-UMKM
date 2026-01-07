@@ -29,25 +29,25 @@ export default function Login({ status, canResetPassword }) {
             <Head title="Masuk ke Akun" />
 
             {/* --- SISI KIRI: VISUAL & BRANDING (Hidden on Mobile) --- */}
-            <div className="relative hidden w-0 flex-1 lg:block">
+            <div className="relative flex-1 hidden w-0 lg:block">
                 <img
-                    className="absolute inset-0 h-full w-full object-cover"
+                    className="absolute inset-0 object-cover w-full h-full"
                     src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop"
                     alt="UMKM Background"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-orange-900/90 via-orange-900/40 to-transparent flex flex-col justify-end p-12">
+                <div className="absolute inset-0 flex flex-col justify-end p-12 bg-gradient-to-t from-orange-900/90 via-orange-900/40 to-transparent">
                     <div className="max-w-md">
-                        <div className="flex items-center gap-2 text-white mb-6">
+                        <div className="flex items-center gap-2 mb-6 text-white">
                             <Store className="w-10 h-10" />
                             <span className="text-3xl font-black tracking-tighter">
                                 Juragan Lapak
                             </span>
                         </div>
-                        <h2 className="text-4xl font-bold text-white leading-tight mb-4">
+                        <h2 className="mb-4 text-4xl font-bold leading-tight text-white">
                             Majukan UMKM Lokal <br />
                             Lewat Satu Genggaman.
                         </h2>
-                        <p className="text-orange-100 text-lg">
+                        <p className="text-lg text-orange-100">
                             Kelola produk, pantau pesanan, dan kembangkan
                             bisnismu lebih cepat dengan platform digital kami.
                         </p>
@@ -56,10 +56,10 @@ export default function Login({ status, canResetPassword }) {
             </div>
 
             {/* --- SISI KANAN: FORM LOGIN --- */}
-            <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
-                <div className="mx-auto w-full max-w-sm lg:w-96">
+            <div className="flex flex-col justify-center flex-1 px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
+                <div className="w-full max-w-sm mx-auto lg:w-96">
                     {/* Header Mobile */}
-                    <div className="lg:hidden flex items-center gap-2 mb-8">
+                    <div className="flex items-center gap-2 mb-8 lg:hidden">
                         <Store className="w-8 h-8 text-orange-600" />
                         <span className="text-xl font-black tracking-tighter text-gray-900">
                             Juragan Lapak
@@ -68,7 +68,7 @@ export default function Login({ status, canResetPassword }) {
 
                     <Link
                         href="/"
-                        className="inline-flex items-center text-sm text-gray-500 hover:text-orange-600 mb-8 transition-colors"
+                        className="inline-flex items-center mb-8 text-sm text-gray-500 transition-colors hover:text-orange-600"
                     >
                         <ChevronLeft className="w-4 h-4 mr-1" /> Kembali ke
                         Beranda
@@ -91,7 +91,7 @@ export default function Login({ status, canResetPassword }) {
 
                     <div className="mt-10">
                         {status && (
-                            <div className="mb-4 font-medium text-sm text-green-600">
+                            <div className="mb-4 text-sm font-medium text-green-600">
                                 {status}
                             </div>
                         )}
@@ -102,16 +102,16 @@ export default function Login({ status, canResetPassword }) {
                                 <label className="block text-sm font-semibold text-gray-700">
                                     Email
                                 </label>
-                                <div className="mt-1 relative rounded-md shadow-sm">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Mail className="h-5 w-5 text-gray-400" />
+                                <div className="relative mt-1 rounded-md shadow-sm">
+                                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                        <Mail className="w-5 h-5 text-gray-400" />
                                     </div>
                                     <TextInput
                                         id="email"
                                         type="email"
                                         name="email"
                                         value={data.email}
-                                        className="pl-10 block w-full border-gray-300 rounded-xl focus:ring-orange-500 focus:border-orange-500"
+                                        className="block w-full pl-10 border-gray-300 rounded-xl focus:ring-orange-500 focus:border-orange-500"
                                         autoComplete="username"
                                         isFocused={true}
                                         onChange={(e) =>
@@ -141,16 +141,16 @@ export default function Login({ status, canResetPassword }) {
                                         </Link>
                                     )}
                                 </div>
-                                <div className="mt-1 relative rounded-md shadow-sm">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Lock className="h-5 w-5 text-gray-400" />
+                                <div className="relative mt-1 rounded-md shadow-sm">
+                                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                        <Lock className="w-5 h-5 text-gray-400" />
                                     </div>
                                     <TextInput
                                         id="password"
                                         type="password"
                                         name="password"
                                         value={data.password}
-                                        className="pl-10 block w-full border-gray-300 rounded-xl focus:ring-orange-500 focus:border-orange-500"
+                                        className="block w-full pl-10 border-gray-300 rounded-xl focus:ring-orange-500 focus:border-orange-500"
                                         autoComplete="current-password"
                                         onChange={(e) =>
                                             setData("password", e.target.value)
@@ -171,23 +171,23 @@ export default function Login({ status, canResetPassword }) {
                                     onChange={(e) =>
                                         setData("remember", e.target.checked)
                                     }
-                                    className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                                    className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                                 />
-                                <label className="ml-2 block text-sm text-gray-600 font-medium">
+                                <label className="block ml-2 text-sm font-medium text-gray-600">
                                     Tetap masuk
                                 </label>
                             </div>
 
                             <div>
                                 <PrimaryButton
-                                    className="w-full flex justify-center py-3 px-4 rounded-xl font-bold bg-orange-600 hover:bg-orange-700 focus:ring-orange-500 shadow-lg shadow-orange-200"
+                                    className="flex justify-center w-full px-4 py-3 font-bold bg-orange-600 shadow-lg rounded-xl hover:bg-orange-700 focus:ring-orange-500 shadow-orange-200"
                                     disabled={processing}
                                 >
                                     {processing
                                         ? "Memproses..."
                                         : "Masuk Sekarang"}
                                     {!processing && (
-                                        <ArrowRight className="ml-2 w-5 h-5" />
+                                        <ArrowRight className="w-5 h-5 ml-2" />
                                     )}
                                 </PrimaryButton>
                             </div>

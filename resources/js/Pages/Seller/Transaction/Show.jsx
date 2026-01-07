@@ -1,5 +1,6 @@
 import SellerLayout from "@/Layouts/SellerLayout";
-import { Head, Link, useForm } from "@inertiajs/react";
+import { Head, Link, useForm, router } from "@inertiajs/react";
+import { useState } from "react";
 import {
     ArrowLeft,
     MapPin,
@@ -7,20 +8,30 @@ import {
     CreditCard,
     Package,
     Truck,
-    Save,
+    CheckCircle,
+    XCircle,
+    AlertTriangle,
+    Copy,
+    Send,
+    Printer,
 } from "lucide-react";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
 import { Label } from "@/Components/ui/label";
+import { Input } from "@/Components/ui/input";
 
 export default function TransactionShow({ transaction }) {
-    // Setup Form untuk Update Status
+    // State untuk Input Resi
+    const [resiInput, setResiInput] = useState(transaction.resi_number || "");
+
+    // Form Handler (Kita pakai satu form generic untuk hit endpoint update)
     const { data, setData, put, processing, errors } = useForm({
-        order_status: transaction.order_status,
+        action_type: "", // 'confirm_payment', 'input_resi', 'cancel', 'complete'
+        resi_number: "",
+        notes: "",
     });
 
-    // --- LOGIC BARU: PARSING SNAPSHOT ALAMAT ---
-    // Kita coba ubah string JSON menjadi Object
+    // --- 1. PARSING ALAMAT (Sama seperti sebelumnya) ---
     let shippingInfo = null;
     try {
         if (transaction.shipping_address_snapshot) {
@@ -30,23 +41,97 @@ export default function TransactionShow({ transaction }) {
         console.error("Gagal parsing alamat:", error);
     }
 
-    // Fallback: Kalau snapshot kosong, pakai data user (tapi snapshot prioritas utama)
     const buyerName = shippingInfo?.recipient_name || transaction.user?.name;
     const buyerPhone =
         shippingInfo?.phone_number || transaction.user?.phone || "-";
     const buyerEmail = transaction.user?.email || "-";
 
-    // --- END LOGIC BARU ---
+    // --- 2. LOGIC TOMBOL AKSI ---
 
-    const handleUpdateStatus = (e) => {
-        e.preventDefault();
-        put(route("seller.transactions.update", transaction.id), {
-            preserveScroll: true,
-            onSuccess: () => alert("Status pesanan berhasil diperbarui!"),
-        });
+    // A. Terima Pembayaran (Ubah Pending -> Processing)
+    const handleConfirmPayment = () => {
+        if (confirm("Pastikan uang sudah masuk ke rekening Anda. Lanjutkan?")) {
+            // GANTI 'put' DENGAN 'router.put'
+            router.put(
+                route("seller.transactions.update", transaction.id),
+                {
+                    action_type: "confirm_payment",
+                },
+                {
+                    preserveScroll: true,
+                    onSuccess: () =>
+                        alert("Pembayaran Dikonfirmasi! Silakan kemas barang."),
+                }
+            );
+        }
     };
 
-    // Helper: Badge Status
+    // B. Input Resi & Kirim (Ubah Processing -> Shipped)
+    const handleSendOrder = (e) => {
+        // e.preventDefault(); // Tidak perlu preventDefault kalau bukan form submit standard
+        if (!resiInput) return alert("Wajib isi Nomor Resi!");
+
+        // GANTI 'put' DENGAN 'router.put'
+        router.put(
+            route("seller.transactions.update", transaction.id),
+            {
+                action_type: "input_resi",
+                resi_number: resiInput, // Kirim state input resi langsung
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () =>
+                    alert("Pesanan dikirim! Status berubah menjadi Dikirim."),
+            }
+        );
+    };
+
+    // C. Batalkan Pesanan
+    const handleCancelOrder = () => {
+        if (
+            confirm(
+                "Yakin ingin membatalkan pesanan ini? Stok akan dikembalikan."
+            )
+        ) {
+            router.put(
+                route("seller.transactions.update", transaction.id),
+                {
+                    action_type: "cancel",
+                },
+                {
+                    preserveScroll: true,
+                }
+            );
+        }
+    };
+
+    const handleCompleteOrder = () => {
+        if (
+            confirm(
+                "Pastikan Pembeli sudah menerima barang. Ubah status jadi Selesai?"
+            )
+        ) {
+            router.put(
+                route("seller.transactions.update", transaction.id),
+                {
+                    action_type: "complete",
+                },
+                {
+                    preserveScroll: true,
+                    onSuccess: () => alert("Pesanan ditandai Selesai!"),
+                }
+            );
+        }
+    };
+
+    // --- 3. HELPER UI ---
+    const formatRupiah = (val) =>
+        new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+        }).format(Number(val) || 0);
+
     const getStatusBadge = (status) => {
         const styles = {
             pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
@@ -57,7 +142,7 @@ export default function TransactionShow({ transaction }) {
         };
         const labels = {
             pending: "Menunggu Pembayaran",
-            processing: "Sedang Diproses",
+            processing: "Perlu Dikirim",
             shipped: "Sedang Dikirim",
             completed: "Selesai",
             cancelled: "Dibatalkan",
@@ -72,91 +157,257 @@ export default function TransactionShow({ transaction }) {
         );
     };
 
-    // Helper: Format Rupiah (Anti NaN)
-    const formatRupiah = (val) =>
-        new Intl.NumberFormat("id-ID", {
-            style: "currency",
-            currency: "IDR",
-            minimumFractionDigits: 0,
-        }).format(Number(val) || 0);
+    // --- 4. RENDER ACTION PANEL (DINAMIS SESUAI STATUS) ---
+    const renderActionPanel = () => {
+        const status = transaction.order_status;
+
+        // KASUS 1: MENUNGGU PEMBAYARAN
+        if (status === "pending") {
+            return (
+                <div className="p-5 border border-yellow-200 bg-yellow-50 rounded-xl">
+                    <h3 className="flex items-center gap-2 mb-2 font-bold text-yellow-800">
+                        <AlertTriangle className="w-5 h-5" />
+                        Konfirmasi Pembayaran
+                    </h3>
+                    <p className="mb-4 text-sm leading-relaxed text-yellow-700">
+                        Cek mutasi rekening Anda. Jika uang sudah masuk sejumlah
+                        <strong>
+                            {" "}
+                            {formatRupiah(transaction.total_price)}
+                        </strong>
+                        , silakan proses pesanan.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                        <Button
+                            variant="outline"
+                            className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                            onClick={handleCancelOrder}
+                            disabled={processing}
+                        >
+                            Tolak / Batal
+                        </Button>
+                        <Button
+                            className="text-white bg-green-600 hover:bg-green-700"
+                            onClick={handleConfirmPayment}
+                            disabled={processing}
+                        >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Terima Pesanan
+                        </Button>
+                    </div>
+                </div>
+            );
+        }
+
+        // KASUS 2: PERLU DIKIRIM (INPUT RESI)
+        if (status === "processing") {
+            return (
+                <div className="p-5 border border-blue-200 bg-blue-50 rounded-xl">
+                    <h3 className="flex items-center gap-2 mb-2 font-bold text-blue-800">
+                        <Package className="w-5 h-5" />
+                        Siap Kirim?
+                    </h3>
+                    <p className="mb-4 text-sm text-blue-700">
+                        Segera kemas barang dan drop ke kurir. Masukkan nomor
+                        resi di bawah ini untuk update status.
+                    </p>
+
+                    <div className="space-y-3">
+                        <div>
+                            <Label className="text-blue-900">Nomor Resi</Label>
+                            <Input
+                                placeholder="Contoh: JP123456789"
+                                value={resiInput}
+                                onChange={(e) => setResiInput(e.target.value)}
+                                className="bg-white border-blue-200 focus:border-blue-500"
+                            />
+                        </div>
+                        <Button
+                            className="w-full bg-blue-600 hover:bg-blue-700"
+                            onClick={handleSendOrder}
+                            disabled={!resiInput}
+                        >
+                            <Truck className="w-4 h-4 mr-2" />
+                            Kirim Pesanan
+                        </Button>
+                    </div>
+                </div>
+            );
+        }
+
+        // KASUS 3: SEDANG DIKIRIM
+        if (status === "shipped") {
+            return (
+                <div className="p-5 border border-purple-200 bg-purple-50 rounded-xl">
+                    <h3 className="flex items-center gap-2 mb-2 font-bold text-purple-800">
+                        <Truck className="w-5 h-5" />
+                        Dalam Pengiriman
+                    </h3>
+
+                    {/* Info Resi */}
+                    <div className="flex items-center justify-between p-3 mb-4 bg-white border border-purple-100 rounded shadow-sm">
+                        <div>
+                            <p className="text-xs font-bold text-purple-500 uppercase">
+                                No. Resi
+                            </p>
+                            <p className="font-mono font-medium tracking-wide text-gray-800">
+                                {transaction.resi_number}
+                            </p>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                                navigator.clipboard.writeText(
+                                    transaction.resi_number
+                                );
+                                alert("Resi disalin!");
+                            }}
+                        >
+                            <Copy className="w-4 h-4 text-purple-400" />
+                        </Button>
+                    </div>
+
+                    <div className="space-y-3">
+                        <p className="text-xs leading-relaxed text-center text-purple-600">
+                            Menunggu pembeli klik "Pesanan Diterima". <br />
+                            Jika pembeli lupa konfirmasi tapi barang sudah
+                            sampai, Anda bisa selesaikan manual.
+                        </p>
+
+                        {/* TOMBOL MANUAL SELESAI */}
+                        <Button
+                            variant="outline"
+                            className="w-full text-purple-700 border-purple-200 hover:bg-purple-100"
+                            onClick={handleCompleteOrder}
+                            disabled={processing}
+                        >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Tandai Selesai (Manual)
+                        </Button>
+                    </div>
+                </div>
+            );
+        }
+
+        // KASUS 4: SELESAI
+        if (status === "completed") {
+            return (
+                <div className="p-5 text-center border border-green-200 bg-green-50 rounded-xl">
+                    <div className="flex items-center justify-center w-12 h-12 mx-auto mb-3 bg-green-100 rounded-full">
+                        <CheckCircle className="w-6 h-6 text-green-600" />
+                    </div>
+                    <h3 className="mb-1 font-bold text-green-800">
+                        Transaksi Selesai
+                    </h3>
+                    <p className="text-sm text-green-600">
+                        Dana telah diteruskan ke saldo toko Anda.
+                    </p>
+                </div>
+            );
+        }
+
+        // KASUS 5: BATAL
+        return (
+            <div className="p-5 text-center bg-gray-100 border border-gray-200 rounded-xl">
+                <XCircle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                <h3 className="font-bold text-gray-600">Pesanan Dibatalkan</h3>
+            </div>
+        );
+    };
 
     return (
         <SellerLayout>
             <Head title={`Pesanan #${transaction.invoice_code}`} />
 
-            <div className="max-w-4xl mx-auto pb-10">
+            <div className="max-w-5xl pb-20 mx-auto">
                 {/* Header Page */}
                 <div className="flex items-center gap-4 mb-6">
                     <Link href={route("seller.transactions.index")}>
                         <Button variant="outline" size="icon">
-                            <ArrowLeft className="h-4 w-4" />
+                            <ArrowLeft className="w-4 h-4" />
                         </Button>
                     </Link>
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-2xl font-bold tracking-tight">
-                                Invoice: {transaction.invoice_code}
-                            </h2>
-                            {getStatusBadge(transaction.order_status)}
+                    <div className="flex flex-col justify-between flex-1 gap-4 md:flex-row md:items-center">
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-2xl font-bold tracking-tight">
+                                    Invoice: {transaction.invoice_code}
+                                </h2>
+                                {getStatusBadge(transaction.order_status)}
+                            </div>
+                            <a
+                                href={route(
+                                    "seller.transactions.print",
+                                    transaction.id
+                                )}
+                                target="_blank" // Buka tab baru biar enak
+                                rel="noopener noreferrer"
+                            >
+                                <Button
+                                    variant="outline"
+                                    className="border-gray-300 hover:bg-gray-50"
+                                >
+                                    <Printer className="w-4 h-4 mr-2" />
+                                    Cetak Label
+                                </Button>
+                            </a>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Dipesan pada:{" "}
+                                {new Date(
+                                    transaction.created_at
+                                ).toLocaleDateString("id-ID", {
+                                    weekday: "long",
+                                    day: "numeric",
+                                    month: "long",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                })}
+                            </p>
                         </div>
-                        <p className="text-muted-foreground text-sm mt-1">
-                            Dipesan pada:{" "}
-                            {new Date(
-                                transaction.created_at
-                            ).toLocaleDateString("id-ID", {
-                                weekday: "long",
-                                day: "numeric",
-                                month: "long",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            })}
-                        </p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* KOLOM KIRI: Detail Produk (2/3 Lebar) */}
-                    <div className="md:col-span-2 space-y-6">
-                        {/* List Produk */}
-                        <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                            <div className="p-4 bg-gray-50 border-b flex items-center gap-2 font-medium">
-                                <Package className="w-4 h-4 text-gray-500" />
-                                Rincian Pesanan
+                <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+                    {/* KOLOM KIRI: DETAIL PRODUK & INFO (Lebar 2/3) */}
+                    <div className="space-y-6 lg:col-span-2">
+                        {/* 1. List Produk */}
+                        <div className="overflow-hidden bg-white border shadow-sm rounded-xl">
+                            <div className="flex items-center gap-2 p-4 font-medium text-gray-700 border-b bg-gray-50">
+                                <Package className="w-4 h-4" /> Rincian Produk
                             </div>
                             <div className="divide-y">
                                 {transaction.transaction_details.map((item) => (
                                     <div
                                         key={item.id}
-                                        className="p-4 flex gap-4"
+                                        className="flex gap-4 p-4"
                                     >
-                                        <div className="w-16 h-16 bg-gray-100 rounded-md overflow-hidden shrink-0 border">
+                                        <div className="w-16 h-16 overflow-hidden bg-gray-100 border rounded-md shrink-0">
                                             {item.product?.image ? (
                                                 <img
                                                     src={`/storage/${item.product.image}`}
                                                     alt={item.product.name}
-                                                    className="w-full h-full object-cover"
+                                                    className="object-cover w-full h-full"
                                                 />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                <div className="flex items-center justify-center w-full h-full text-gray-400">
                                                     <Package className="w-6 h-6" />
                                                 </div>
                                             )}
                                         </div>
-
                                         <div className="flex-1">
                                             <h4 className="font-medium text-gray-900 line-clamp-2">
                                                 {item.product?.name ||
                                                     "Produk Dihapus"}
                                             </h4>
-                                            <div className="text-sm text-gray-500 mt-1">
+                                            <div className="mt-1 text-sm text-gray-500">
                                                 {item.qty} x{" "}
                                                 {formatRupiah(
                                                     item.price_at_transaction
                                                 )}
                                             </div>
                                         </div>
-
                                         <div className="font-semibold text-gray-700">
                                             {formatRupiah(
                                                 (Number(item.qty) || 0) *
@@ -169,15 +420,15 @@ export default function TransactionShow({ transaction }) {
                                 ))}
                             </div>
 
-                            {/* Summary Total */}
-                            <div className="bg-gray-50 p-4 space-y-2 border-t">
-                                <div className="flex justify-between text-sm text-gray-600">
+                            {/* Rincian Harga */}
+                            <div className="p-4 space-y-2 text-sm border-t bg-gray-50">
+                                <div className="flex justify-between text-gray-600">
                                     <span>Subtotal Produk</span>
                                     <span>
                                         {formatRupiah(transaction.total_price)}
                                     </span>
                                 </div>
-                                <div className="flex justify-between text-sm text-gray-600">
+                                <div className="flex justify-between text-gray-600">
                                     <span>Ongkos Kirim</span>
                                     <span>
                                         {formatRupiah(
@@ -185,7 +436,7 @@ export default function TransactionShow({ transaction }) {
                                         )}
                                     </span>
                                 </div>
-                                <div className="flex justify-between font-bold text-lg pt-2 border-t border-gray-200 mt-2">
+                                <div className="flex justify-between pt-3 mt-2 text-lg font-bold text-gray-900 border-t border-gray-200">
                                     <span>Total Pembayaran</span>
                                     <span className="text-orange-600">
                                         {formatRupiah(
@@ -200,169 +451,125 @@ export default function TransactionShow({ transaction }) {
                             </div>
                         </div>
 
-                        {/* Info Pembeli & Pengiriman */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Kotak Info Kontak */}
-                            <div className="bg-white border rounded-xl p-4 shadow-sm">
-                                <h4 className="flex items-center gap-2 font-medium mb-3 text-gray-700 border-b pb-2">
-                                    <User className="w-4 h-4" /> Kontak Pembeli
+                        {/* 2. Info Pengiriman & Pembeli */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            {/* Pembeli */}
+                            <div className="p-5 bg-white border shadow-sm rounded-xl">
+                                <h4 className="flex items-center gap-2 pb-2 mb-4 font-semibold text-gray-800 border-b">
+                                    <User className="w-4 h-4" /> Data Pembeli
                                 </h4>
-                                <div className="text-sm space-y-2">
+                                <div className="space-y-3 text-sm">
                                     <div>
                                         <p className="text-xs text-gray-500">
-                                            Nama Penerima
+                                            Nama Akun
                                         </p>
-                                        <p className="font-medium">
-                                            {buyerName}
+                                        <p className="font-medium text-gray-900">
+                                            {transaction.user?.name}
                                         </p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-gray-500">
-                                            Email Akun
+                                            Email / Kontak
                                         </p>
-                                        <p className="font-medium text-gray-700">
+                                        <p className="font-medium text-gray-900">
                                             {buyerEmail}
                                         </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500">
-                                            No WhatsApp/HP
-                                        </p>
-                                        <p className="font-medium text-gray-700">
-                                            {buyerPhone}
+                                        <p className="font-medium text-gray-900">
+                                            {transaction.user?.phone || "-"}
                                         </p>
                                     </div>
+                                    {/* Tombol WA ke Pembeli */}
+                                    {buyerPhone !== "-" && (
+                                        <a
+                                            href={`https://wa.me/62${buyerPhone.replace(
+                                                /^0/,
+                                                ""
+                                            )}`}
+                                            target="_blank"
+                                            className="inline-flex items-center gap-1.5 text-green-600 hover:text-green-700 font-medium mt-1"
+                                        >
+                                            <Send className="w-3 h-3" /> Hubungi
+                                            via WA
+                                        </a>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Kotak Alamat Lengkap */}
-                            <div className="bg-white border rounded-xl p-4 shadow-sm">
-                                <h4 className="flex items-center gap-2 font-medium mb-3 text-gray-700 border-b pb-2">
-                                    <MapPin className="w-4 h-4" /> Alamat
+                            {/* Alamat */}
+                            <div className="p-5 bg-white border shadow-sm rounded-xl">
+                                <h4 className="flex items-center gap-2 pb-2 mb-4 font-semibold text-gray-800 border-b">
+                                    <MapPin className="w-4 h-4" /> Tujuan
                                     Pengiriman
                                 </h4>
-
                                 {shippingInfo ? (
-                                    <div className="text-sm text-gray-700 space-y-1">
-                                        <p className="leading-relaxed font-medium">
+                                    <div className="space-y-2 text-sm text-gray-700">
+                                        <p className="font-bold">
+                                            {shippingInfo.recipient_name}
+                                        </p>
+                                        <p className="leading-relaxed">
                                             {shippingInfo.address_line}
                                         </p>
                                         <p>
                                             {shippingInfo.city},{" "}
                                             {shippingInfo.postal_code}
                                         </p>
-                                        <div className="mt-2 text-xs bg-blue-50 text-blue-700 p-2 rounded">
-                                            Penerima:{" "}
-                                            {shippingInfo.recipient_name} <br />
-                                            HP: {shippingInfo.phone_number}
-                                        </div>
+                                        <p className="pt-1 mt-2 text-gray-500 border-t">
+                                            Telp: {shippingInfo.phone_number}
+                                        </p>
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-gray-500 italic">
-                                        {transaction.address ||
-                                            "Alamat tidak disertakan (Manual)"}
+                                    <p className="text-sm italic text-gray-500">
+                                        {transaction.address || "Alamat manual"}
                                     </p>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    {/* KOLOM KANAN: Panel Aksi */}
-                    <div className="space-y-6">
-                        {/* UPDATE STATUS */}
-                        <div className="bg-white border rounded-xl p-5 shadow-sm sticky top-6 border-l-4 border-l-blue-500">
-                            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                <Truck className="w-5 h-5 text-blue-600" />
-                                Update Status
-                            </h3>
+                    {/* KOLOM KANAN: ACTION PANEL (Sticky) */}
+                    <div className="space-y-6 lg:col-span-1">
+                        {/* 1. STATUS & ACTION CARD (DINAMIS) */}
+                        {renderActionPanel()}
 
-                            <form
-                                onSubmit={handleUpdateStatus}
-                                className="space-y-4"
-                            >
-                                <div className="space-y-2">
-                                    <Label>Status Pesanan Saat Ini</Label>
-                                    <select
-                                        className="w-full rounded-md border border-gray-300 p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
-                                        value={data.order_status}
-                                        onChange={(e) =>
-                                            setData(
-                                                "order_status",
-                                                e.target.value
-                                            )
-                                        }
-                                    >
-                                        <option value="pending">
-                                            Menunggu Pembayaran
-                                        </option>
-                                        <option value="processing">
-                                            Sedang Diproses (Packing)
-                                        </option>
-                                        <option value="shipped">
-                                            Sedang Dikirim (Kurir)
-                                        </option>
-                                        <option value="completed">
-                                            Selesai (Diterima)
-                                        </option>
-                                        <option value="cancelled">
-                                            Dibatalkan
-                                        </option>
-                                    </select>
-                                    {errors.order_status && (
-                                        <p className="text-red-500 text-xs">
-                                            {errors.order_status}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="pt-2">
-                                    <Button
-                                        type="submit"
-                                        disabled={processing}
-                                        className="w-full bg-blue-600 hover:bg-blue-700"
-                                    >
-                                        <Save className="w-4 h-4 mr-2" />
-                                        {processing
-                                            ? "Menyimpan..."
-                                            : "Simpan Perubahan"}
-                                    </Button>
-                                </div>
-                            </form>
-                        </div>
-
-                        {/* INFO PEMBAYARAN */}
-                        <div className="bg-white border rounded-xl p-5 shadow-sm">
-                            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-gray-700">
+                        {/* 2. PAYMENT INFO */}
+                        <div className="p-5 bg-white border shadow-sm rounded-xl">
+                            <h3 className="flex items-center gap-2 mb-4 text-sm font-bold text-gray-800">
                                 <CreditCard className="w-4 h-4" />
-                                Metode Pembayaran
+                                Informasi Pembayaran
                             </h3>
-                            <div className="text-sm">
-                                <div className="flex justify-between py-2 border-b border-dashed">
-                                    <span className="text-gray-500">Tipe</span>
+                            <div className="space-y-3 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">
+                                        Metode
+                                    </span>
                                     <span className="font-medium uppercase">
-                                        {transaction.payment_method
-                                            ? transaction.payment_method
-                                            : transaction.snap_token
-                                            ? "MIDTRANS (OTOMATIS)"
-                                            : "MANUAL / WA"}
+                                        {transaction.snap_token
+                                            ? "Otomatis (Midtrans)"
+                                            : "Manual Transfer (WA)"}
                                     </span>
                                 </div>
-                                <div className="flex justify-between py-2">
+                                <div className="flex justify-between">
                                     <span className="text-gray-500">
-                                        Status Bayar
+                                        Status
                                     </span>
-                                    <span
-                                        className={`font-bold ${
+                                    <Badge
+                                        variant={
                                             transaction.payment_status ===
                                             "paid"
-                                                ? "text-green-600"
-                                                : "text-orange-500"
-                                        }`}
+                                                ? "default"
+                                                : "secondary"
+                                        }
+                                        className={
+                                            transaction.payment_status ===
+                                            "paid"
+                                                ? "bg-green-100 text-green-700 hover:bg-green-100"
+                                                : ""
+                                        }
                                     >
                                         {transaction.payment_status === "paid"
                                             ? "LUNAS"
                                             : "BELUM LUNAS"}
-                                    </span>
+                                    </Badge>
                                 </div>
                             </div>
                         </div>
