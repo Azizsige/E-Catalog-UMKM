@@ -5,14 +5,11 @@ namespace App\Http\Controllers\Public;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Auth;
-use App\Models\Cart;
-use App\Models\UserAddress;
-use Illuminate\Support\Facades\DB;
 use App\Models\Transaction;
 use App\Models\TransactionDetail;
+use App\Models\Product;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Carbon\Carbon;
 use Midtrans\Config;
 use Midtrans\Snap;
 
@@ -21,155 +18,91 @@ class CheckoutController extends Controller
     // 1. TAMPILKAN HALAMAN CHECKOUT
     public function index(Request $request)
     {
-        $cartIds = $request->query('ids');
-
-        if (!$cartIds) {
-            return redirect()->route('cart.index')->withErrors('Pilih barang dulu bos!');
-        }
-
-        $carts = Cart::with(['product.user.store']) 
-                    ->whereIn('id', $cartIds)
-                    ->where('user_id', Auth::id())
-                    ->get();
-
-        $addresses = UserAddress::where('user_id', Auth::id())->get();
-
+        // Ambil data toko untuk tau dia pakai WA atau Midtrans
+        $store = \App\Models\Store::latest('updated_at')->first();
+        
         return Inertia::render('Checkout/Index', [
-            'carts' => $carts,
-            'addresses' => $addresses,
-            'user' => Auth::user()
+            'store' => $store,
+            // Lempar Client Key Midtrans ke Frontend buat load popup Snap
+            'midtransClientKey' => config('midtrans.client_key', env('MIDTRANS_CLIENT_KEY'))
         ]);
     }
 
-    // 2. SIMPAN ALAMAT BARU
-    public function storeAddress(Request $request)
-{
-    // 1. Validasi
-    $validated = $request->validate([
-        'recipient_name' => 'required|string|max:255',
-        'phone_number' => 'required|string|max:20',
-        'address_line' => 'required|string',
-        'city' => 'required|string',
-        'postal_code' => 'required|string|max:10',
-    ]);
-
-    // 2. Simpan ke Database (Tabel User Addresses atau Users kolom address)
-    // Asumsi: Kamu punya tabel `user_addresses`. Kalau cuma kolom di user, sesuaikan.
-    
-    // Contoh kalau pakai tabel terpisah (Recommended):
-    $request->user()->addresses()->create($validated);
-
-    // ATAU Contoh kalau update profil user (Simple):
-    // $request->user()->update(['address' => $validated['address_line'] ... ]);
-
-    // 3. REDIRECT BACK (PENTING!)
-    // Ini akan menyuruh Inertia me-reload halaman checkout dengan data alamat baru
-    return redirect()->back()->with('message', 'Alamat berhasil ditambahkan!');
-}
-
-    // 3. HAPUS ALAMAT
-    public function destroyAddress($id)
-    {
-        $address = UserAddress::findOrFail($id);
-
-        if ($address->user_id !== Auth::id()) {
-            abort(403);
-        }
-
-        $address->delete();
-
-        return back()->with('message', 'Alamat berhasil dihapus.');
-    }
-
-    // 4. PROSES CHECKOUT (SIMPAN TRANSAKSI)
+    // 2. PROSES CHECKOUT (GUEST)
     public function store(Request $request)
     {
-        // 1. Validasi Input
         $request->validate([
-            'address_id' => 'required|exists:user_addresses,id',
-            'cart_ids'   => 'required|array',
-            'cart_ids.*' => 'exists:carts,id',
+            'recipient_name' => 'required|string|max:255',
+            'phone_number'   => 'required|string|max:20',
+            'address_line'   => 'required|string',
+            'city'           => 'required|string',
+            'postal_code'    => 'required|string|max:10',
+            'items'          => 'required|array|min:1', 
+            'items.*.id'     => 'required|exists:products,id',
+            'items.*.qty'    => 'required|integer|min:1',
         ]);
 
         DB::beginTransaction();
         try {
-            $user = Auth::user();
-            
-            // 2. Ambil Data Keranjang & Produknya
-            $carts = Cart::with(['product.store'])->whereIn('id', $request->cart_ids)->get();
+            $store = \App\Models\Store::latest('updated_at')->first();
 
-            // Security: Pastikan cart tidak kosong & punya user yang benar
-            if ($carts->isEmpty()) {
-                return back()->withErrors(['error' => 'Keranjang belanja kosong atau tidak valid.']);
-            }
-
-            // Asumsi: Dalam 1 checkout, semua produk berasal dari 1 Toko yang sama
-            // (Sesuai logic sederhana E-Catalog UMKM)
-            $firstProduct = $carts->first()->product;
-            $store = $firstProduct->store;
-
-            // 3. Ambil Data Alamat untuk Snapshot
-            $address = UserAddress::find($request->address_id);
-            
-            // Bikin JSON Snapshot (PENTING: Biar kalau user ubah alamat profil, data transaksi aman)
             $addressSnapshot = json_encode([
-                'recipient_name' => $address->recipient_name,
-                'phone_number'   => $address->phone_number,
-                'address_line'   => $address->address_line,
-                'city'           => $address->city,
-                'postal_code'    => $address->postal_code,
+                'recipient_name' => $request->recipient_name,
+                'phone_number'   => $request->phone_number,
+                'address_line'   => $request->address_line,
+                'city'           => $request->city,
+                'postal_code'    => $request->postal_code,
             ]);
 
-            // String Alamat Simpel (untuk display cepat)
-            $simpleAddress = "{$address->address_line}, {$address->city}, {$address->postal_code}";
-
-            // 4. Hitung Total & Cek Stok
             $totalPrice = 0;
-            foreach ($carts as $cart) {
-                if ($cart->product->stock < $cart->qty) {
-                    throw new \Exception("Stok produk '{$cart->product->name}' tidak mencukupi.");
-                }
-                $totalPrice += $cart->product->price * $cart->qty;
-            }
-            $shippingCost = 15000; // Flat rate sementara
+            $processedItems = [];
 
-            // 5. Buat Header Transaksi
+            foreach ($request->items as $item) {
+                $product = Product::find($item['id']);
+                if (!$product || $product->stock < $item['qty']) {
+                    throw new \Exception("Stok produk '{$product->name}' tidak mencukupi.");
+                }
+                $totalPrice += $product->price * $item['qty'];
+                
+                $processedItems[] = [
+                    'product' => $product,
+                    'qty' => $item['qty']
+                ];
+            }
+            
+            $shippingCost = 15000; 
+
+            // Tentukan Metode Pembayaran berdasarkan settingan toko
+            $paymentMethod = ($store->checkout_mode === 'midtrans') ? 'midtrans' : 'whatsapp';
+
             $transaction = Transaction::create([
-                'user_id'       => $user->id,
+                'user_id'       => null, 
                 'store_id'      => $store->id,
                 'invoice_code'  => 'INV/' . date('Ymd') . '/' . Str::upper(Str::random(5)),
                 'total_price'   => $totalPrice,
                 'shipping_cost' => $shippingCost,
-                'address'       => $simpleAddress, // String biasa
-                'shipping_address_snapshot' => $addressSnapshot, // JSON Lengkap
+                'shipping_address_snapshot' => $addressSnapshot,
                 'order_status'  => 'pending',
                 'payment_status'=> 'pending',
-                'payment_method'=> ($store->checkout_mode === 'midtrans') ? 'midtrans' : 'manual',
+                'payment_method'=> $paymentMethod, 
             ]);
 
-            // 6. Buat Detail Transaksi & Kurangi Stok
-            foreach ($carts as $cart) {
+            foreach ($processedItems as $data) {
                 TransactionDetail::create([
                     'transaction_id' => $transaction->id,
-                    'product_id'     => $cart->product_id,
-                    'qty'            => $cart->qty,
-                    'price_at_transaction' => $cart->product->price
+                    'product_id'     => $data['product']->id,
+                    'qty'            => $data['qty'],
+                    'price_at_transaction' => $data['product']->price
                 ]);
-
-                // Kurangi stok produk
-                $cart->product->decrement('stock', $cart->qty);
+                $data['product']->decrement('stock', $data['qty']);
             }
 
-            // 👇👇👇 7. THE FIX: HAPUS DARI KERANJANG 👇👇👇
-            // Hanya hapus item yang dipilih saat checkout
-            Cart::whereIn('id', $request->cart_ids)->delete();
-            // 👆👆👆 ----------------------------------- 👆👆👆
+            DB::commit();
 
-            // 8. Logic Pembayaran (Hybrid)
-            
-            // SKENARIO A: MIDTRANS (Otomatis)
-            if ($store->checkout_mode === 'midtrans') {
-                // Setup Midtrans
+            // --- CABANG LOGIC PEMBAYARAN ---
+
+            // JIKA TOKO PAKE MIDTRANS
+            if ($paymentMethod === 'midtrans') {
                 Config::$serverKey = config('midtrans.server_key');
                 Config::$isProduction = config('midtrans.is_production');
                 Config::$isSanitized = true;
@@ -177,51 +110,39 @@ class CheckoutController extends Controller
 
                 $midtransParams = [
                     'transaction_details' => [
-                        'order_id' => $transaction->invoice_code . '-' . rand(100,999), // Unik biar gak error duplicate order_id midtrans
+                        'order_id' => $transaction->invoice_code . '-' . rand(100,999),
                         'gross_amount' => $totalPrice + $shippingCost,
                     ],
                     'customer_details' => [
-                        'first_name' => $address->recipient_name,
-                        'email' => $user->email,
-                        'phone' => $address->phone_number,
+                        'first_name' => $request->recipient_name,
+                        'email' => 'guest@' . strtolower(str_replace(' ', '', $store->name)) . '.com', // Email dummy krn guest
+                        'phone' => $request->phone_number,
                     ],
                 ];
 
                 $snapToken = Snap::getSnapToken($midtransParams);
                 $transaction->update(['snap_token' => $snapToken]);
-                
-                DB::commit();
 
-                // Redirect ke halaman detail transaksi (Customer bisa bayar disana)
-                // Atau langsung pop-up Snap (tergantung implementasi frontend kamu)
-                // Disini kita redirect ke halaman riwayat pesanan (Detail)
-                return redirect()->route('transactions.show', $transaction->id);
-            }
-
-            // SKENARIO B: MANUAL (WhatsApp)
+                return response()->json([
+                    'success' => true,
+                    'is_midtrans' => true,
+                    'snap_token' => $snapToken,
+                    'invoice_code' => $transaction->invoice_code
+                ]);
+            } 
+            // JIKA TOKO PAKE WHATSAPP
             else {
-                DB::commit();
-
-                // Format Pesan WA
-                $waPhone = $store->phone_number; // Pastikan format 628xxx
-                // Jika user input 08xxx, ubah ke 628xxx
-                if (str_starts_with($waPhone, '0')) {
-                    $waPhone = '62' . substr($waPhone, 1);
-                }
-
-                $message = "Halo kak, saya mau konfirmasi pesanan *{$transaction->invoice_code}*.\n";
-                $message .= "Total: Rp " . number_format($totalPrice + $shippingCost, 0, ',', '.') . "\n";
-                $message .= "Mohon info rekening pembayarannya ya. Terima kasih!";
-                
-                $waUrl = "https://wa.me/{$waPhone}?text=" . urlencode($message);
-
-                // Redirect Inertia ke External URL (WA)
-                return \Inertia\Inertia::location($waUrl);
+                // PENTING: Wajib return invoice_code biar React bisa ngarahin ke /order/INV-XXX
+                return response()->json([
+                    'success' => true,
+                    'is_midtrans' => false,
+                    'invoice_code' => $transaction->invoice_code 
+                ]);
             }
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Gagal memproses pesanan: ' . $e->getMessage()]);
+            return response()->json(['error' => $e->getMessage()], 422);
         }
     }
 }

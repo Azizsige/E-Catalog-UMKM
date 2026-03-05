@@ -1,15 +1,38 @@
 import { Head, Link, router } from "@inertiajs/react";
-import { ShoppingBag, Search, X, ArrowRight, Store, Star } from "lucide-react";
+import {
+    ShoppingBag,
+    Search,
+    X,
+    Store,
+    Plus,
+    CheckCircle2,
+} from "lucide-react";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/Components/Navbar";
 
-export default function Welcome({ auth, products, categories, filters }) {
+export default function Welcome({
+    auth,
+    products,
+    categories,
+    filters,
+    storeInfo,
+}) {
     const [searchTerm, setSearchTerm] = useState(filters.search || "");
-
-    // Cek apakah user sedang melakukan filtering/pencarian
     const isFiltering = filters.search || filters.category;
+
+    // --- STATE UNTUK TOAST NOTIFICATION ---
+    const [toastMessage, setToastMessage] = useState(null);
+
+    useEffect(() => {
+        if (toastMessage) {
+            const timer = setTimeout(() => {
+                setToastMessage(null);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [toastMessage]);
 
     const formatRupiah = (number) => {
         return new Intl.NumberFormat("id-ID", {
@@ -24,7 +47,7 @@ export default function Welcome({ auth, products, categories, filters }) {
         router.get(
             "/",
             { search: searchTerm, category: filters.category },
-            { preserveState: true }
+            { preserveState: true },
         );
     };
 
@@ -32,7 +55,7 @@ export default function Welcome({ auth, products, categories, filters }) {
         router.get(
             "/",
             { search: filters.search, category: categorySlug },
-            { preserveState: true }
+            { preserveState: true },
         );
     };
 
@@ -41,45 +64,139 @@ export default function Welcome({ auth, products, categories, filters }) {
         router.get("/");
     };
 
+    // --- FUNGSI TAMBAH KE KERANJANG LOKAL ---
+    const addToLocalCart = (e, product) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (product.stock < 1) return;
+
+        let currentCart = { items: [], count: 0 };
+        const storedCart = localStorage.getItem("guest_cart");
+
+        if (storedCart) {
+            currentCart = JSON.parse(storedCart);
+        }
+
+        const existingItemIndex = currentCart.items.findIndex(
+            (item) => item.product.id === product.id,
+        );
+
+        if (existingItemIndex > -1) {
+            if (currentCart.items[existingItemIndex].qty < product.stock) {
+                currentCart.items[existingItemIndex].qty += 1;
+            } else {
+                setToastMessage(`Stok ${product.name} sudah maksimal!`);
+                return;
+            }
+        } else {
+            currentCart.items.push({
+                id: `local_${product.id}_${Date.now()}`,
+                product: product,
+                qty: 1,
+            });
+        }
+
+        currentCart.count = currentCart.items.reduce(
+            (acc, curr) => acc + curr.qty,
+            0,
+        );
+        localStorage.setItem("guest_cart", JSON.stringify(currentCart));
+        window.dispatchEvent(new Event("guest-cart-updated"));
+
+        setToastMessage(`Berhasil menambahkan ${product.name} ke keranjang!`);
+    };
+
     return (
-        <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
-            <Head title="Selamat Datang" />
+        <div className="relative min-h-screen font-sans text-gray-900 bg-gray-50">
+            <Head title={storeInfo?.name || "Katalog Produk"} />
             <Navbar />
 
-            {/* --- 1. HERO SECTION (Hanya Muncul Jika TIDAK Sedang Filter) --- */}
+            {/* --- TOAST NOTIFICATION --- */}
+            {toastMessage && (
+                <div className="fixed z-[100] duration-300 bottom-6 right-6 animate-in slide-in-from-bottom-5 fade-in">
+                    <div className="flex items-center gap-3 px-6 py-3 text-white bg-gray-900 shadow-2xl rounded-xl">
+                        <CheckCircle2 className="w-5 h-5 text-green-400" />
+                        <p className="text-sm font-medium">{toastMessage}</p>
+                    </div>
+                </div>
+            )}
+
+            {/* --- 1. HERO SECTION DINAMIS DARI INFO BISNIS --- */}
             {!isFiltering && (
                 <>
-                    {/* Banner Besar */}
-                    <div className="bg-white border-b">
-                        <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8 flex flex-col items-center text-center">
-                            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-gray-900 mb-6">
-                                Jajanan UMKM{" "}
-                                <span className="text-orange-600">Pilihan</span>{" "}
-                                <br />
-                                Langsung dari Tetangga!
+                    <div
+                        className="relative bg-center bg-cover border-b bg-white"
+                        style={
+                            storeInfo?.banner
+                                ? {
+                                      backgroundImage: `url('/storage/${storeInfo.banner}')`,
+                                  }
+                                : {}
+                        }
+                    >
+                        {/* Overlay Gelap Jika Ada Banner */}
+                        {storeInfo?.banner && (
+                            <div className="absolute inset-0 bg-black/60"></div>
+                        )}
+
+                        <div
+                            className={`max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8 flex flex-col items-center text-center relative z-10 ${storeInfo?.banner ? "text-white" : ""}`}
+                        >
+                            {/* Logo Toko */}
+                            {storeInfo?.logo && (
+                                <div className="overflow-hidden bg-white border-4 border-white rounded-full shadow-xl w-28 h-28 mb-6">
+                                    <img
+                                        src={`/storage/${storeInfo.logo}`}
+                                        alt="Logo"
+                                        className="object-cover w-full h-full"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Nama & Deskripsi Toko */}
+                            <h1 className="mb-4 text-4xl font-extrabold tracking-tight md:text-6xl">
+                                {storeInfo?.name ? (
+                                    <>
+                                        Selamat Datang di <br />
+                                        <span className="text-orange-500">
+                                            {storeInfo.name}
+                                        </span>
+                                    </>
+                                ) : (
+                                    <>
+                                        Katalog{" "}
+                                        <span className="text-orange-500">
+                                            Terbaik
+                                        </span>
+                                        <br />
+                                        Untuk Anda
+                                    </>
+                                )}
                             </h1>
-                            <p className="mt-4 text-xl text-gray-500 max-w-2xl mb-8">
-                                Dukung ekonomi lokal dengan rasa bintang lima
-                                harga kaki lima.
+                            <p
+                                className={`mt-4 text-xl max-w-2xl mb-8 ${storeInfo?.banner ? "text-gray-200" : "text-gray-500"}`}
+                            >
+                                {storeInfo?.description ||
+                                    "Pilih produk favoritmu sekarang. Belanja gampang, gak pake ribet."}
                             </p>
 
-                            {/* Search Bar Besar di Hero */}
                             <form
                                 onSubmit={handleSearch}
-                                className="w-full max-w-xl flex gap-2 shadow-lg p-2 bg-white rounded-full border"
+                                className="flex w-full max-w-xl gap-2 p-2 bg-white border rounded-full shadow-lg"
                             >
                                 <Input
-                                    placeholder="Lagi ngidam apa hari ini? (ex: Seblak, Kopi)"
+                                    placeholder="Cari produk favoritmu..."
                                     value={searchTerm}
                                     onChange={(e) =>
                                         setSearchTerm(e.target.value)
                                     }
-                                    className="border-0 shadow-none focus-visible:ring-0 text-lg h-12 bg-transparent pl-4"
+                                    className="h-12 pl-4 text-lg text-gray-900 bg-transparent border-0 shadow-none focus-visible:ring-0"
                                 />
                                 <Button
                                     type="submit"
                                     size="lg"
-                                    className="rounded-full h-12 px-8 bg-orange-600 hover:bg-orange-700"
+                                    className="h-12 px-8 bg-orange-600 rounded-full hover:bg-orange-700"
                                 >
                                     Cari
                                 </Button>
@@ -87,24 +204,24 @@ export default function Welcome({ auth, products, categories, filters }) {
                         </div>
                     </div>
 
-                    {/* Section Kategori (Icon Grid) */}
+                    {/* Section Kategori */}
                     <div className="py-12 bg-gray-50">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                        <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
+                            <h2 className="flex items-center gap-2 mb-6 text-xl font-bold">
                                 <ShoppingBag className="w-5 h-5 text-orange-600" />{" "}
-                                Kategori Populer
+                                Kategori Pilihan
                             </h2>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
                                 {categories.map((cat) => (
                                     <div
                                         key={cat.id}
                                         onClick={() => handleCategory(cat.slug)}
-                                        className="bg-white p-4 rounded-xl border hover:border-orange-500 cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md text-center group"
+                                        className="p-4 text-center transition-all bg-white border cursor-pointer rounded-xl hover:border-orange-500 hover:-translate-y-1 hover:shadow-md group"
                                     >
-                                        <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 text-orange-600 font-bold group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                                        <div className="flex items-center justify-center w-10 h-10 mx-auto mb-3 font-bold text-orange-600 transition-colors bg-orange-100 rounded-full group-hover:bg-orange-600 group-hover:text-white">
                                             {cat.name.charAt(0)}
                                         </div>
-                                        <span className="font-medium text-sm text-gray-700 group-hover:text-orange-600">
+                                        <span className="text-sm font-medium text-gray-700 group-hover:text-orange-600">
                                             {cat.name}
                                         </span>
                                     </div>
@@ -115,16 +232,16 @@ export default function Welcome({ auth, products, categories, filters }) {
                 </>
             )}
 
-            {/* --- 2. COMPACT HEADER (Hanya Muncul Jika SEDANG Filter/Search) --- */}
+            {/* --- 2. COMPACT HEADER --- */}
             {isFiltering && (
-                <div className="bg-white border-b py-4 px-4 sticky top-16 z-10 shadow-sm">
-                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="sticky top-16 z-10 px-4 py-4 bg-white border-b shadow-sm">
+                    <div className="flex flex-col items-center justify-between gap-4 mx-auto max-w-7xl md:flex-row">
                         <form
                             onSubmit={handleSearch}
-                            className="flex gap-2 w-full md:max-w-md"
+                            className="flex w-full gap-2 md:max-w-md"
                         >
                             <Input
-                                placeholder="Cari produk lain..."
+                                placeholder="Cari produk..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="h-10"
@@ -138,7 +255,7 @@ export default function Welcome({ auth, products, categories, filters }) {
                             </Button>
                         </form>
 
-                        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto no-scrollbar">
+                        <div className="flex w-full gap-2 pb-2 overflow-x-auto md:pb-0 md:w-auto no-scrollbar">
                             {categories.map((cat) => (
                                 <Button
                                     key={cat.id}
@@ -151,10 +268,10 @@ export default function Welcome({ auth, products, categories, filters }) {
                                         handleCategory(
                                             cat.slug === filters.category
                                                 ? null
-                                                : cat.slug
+                                                : cat.slug,
                                         )
                                     }
-                                    className="rounded-full text-xs h-8"
+                                    className="h-8 text-xs rounded-full"
                                     size="sm"
                                 >
                                     {cat.name}
@@ -165,25 +282,18 @@ export default function Welcome({ auth, products, categories, filters }) {
                 </div>
             )}
 
-            {/* --- 3. CATALOG PRODUCT (Main Content) --- */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                {/* Judul Section */}
-                <div className="flex justify-between items-end mb-8">
+            {/* --- 3. CATALOG PRODUCT --- */}
+            <main className="px-4 py-12 mx-auto max-w-7xl sm:px-6 lg:px-8">
+                <div className="flex items-end justify-between mb-8">
                     <div>
                         <h2 className="text-2xl font-bold text-gray-900">
                             {filters.search
                                 ? `Hasil pencarian: "${filters.search}"`
                                 : filters.category
-                                ? `Kategori: ${filters.category}`
-                                : "Rekomendasi Terbaru"}
+                                  ? `Kategori: ${filters.category}`
+                                  : "Produk Kami"}
                         </h2>
-                        {!isFiltering && (
-                            <p className="text-gray-500 text-sm mt-1">
-                                Produk terbaru yang baru aja di-restock!
-                            </p>
-                        )}
                     </div>
-
                     {isFiltering && (
                         <Button
                             variant="ghost"
@@ -197,77 +307,126 @@ export default function Welcome({ auth, products, categories, filters }) {
                 </div>
 
                 {products.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {products.map((product) => (
-                            <Link
-                                key={product.id}
-                                href={route("product.detail", product.slug)}
-                                className="group flex flex-col bg-white border rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300"
-                            >
-                                {/* Image Wrapper */}
-                                <div className="aspect-square bg-gray-200 relative overflow-hidden">
-                                    {product.image ? (
-                                        <img
-                                            src={`/storage/${product.image}`}
-                                            alt={product.name}
-                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                        />
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full text-gray-400">
-                                            <ShoppingBag className="w-12 h-12 opacity-20" />
+                    <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
+                        {products.map((product) => {
+                            const isOutofStock = product.stock < 1;
+
+                            return (
+                                <Link
+                                    key={product.id}
+                                    href={
+                                        isOutofStock
+                                            ? "#"
+                                            : route(
+                                                  "product.detail",
+                                                  product.slug,
+                                              )
+                                    }
+                                    onClick={(e) => {
+                                        if (isOutofStock) {
+                                            e.preventDefault();
+                                        }
+                                    }}
+                                    className={`group flex flex-col bg-white border rounded-xl overflow-hidden transition-all duration-300 relative ${
+                                        isOutofStock
+                                            ? "opacity-75 cursor-not-allowed"
+                                            : "hover:shadow-lg"
+                                    }`}
+                                >
+                                    <div className="relative overflow-hidden bg-gray-200 aspect-square">
+                                        {/* Overlay Gelap & Tulisan Habis di Tengah (MUNCUL KALAU STOK 0) */}
+                                        {isOutofStock && (
+                                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-10 flex items-center justify-center">
+                                                <span className="px-4 py-2 text-sm font-black tracking-wider text-white transform -rotate-12 bg-red-600 border-2 rounded-lg shadow-xl md:text-base border-white/20">
+                                                    STOK HABIS
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {product.image ? (
+                                            <img
+                                                src={`/storage/${product.image}`}
+                                                alt={product.name}
+                                                // Tambahin efek grayscale dan matikan zoom hover kalau habis
+                                                className={`object-cover w-full h-full transition-transform duration-500 ${
+                                                    isOutofStock
+                                                        ? "grayscale"
+                                                        : "group-hover:scale-110"
+                                                }`}
+                                            />
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full text-gray-400">
+                                                <ShoppingBag className="w-12 h-12 opacity-20" />
+                                            </div>
+                                        )}
+
+                                        {/* Badge Kecil di Pojok Kiri Atas (Hanya tampil jika stok ada) */}
+                                        {!isOutofStock && (
+                                            <div className="absolute top-2 left-2 bg-black/60 backdrop-blur text-white text-[10px] px-2 py-1 rounded font-medium z-10">
+                                                Stok: {product.stock}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex flex-col flex-1 p-4">
+                                        <h3
+                                            className={`font-bold mb-1 line-clamp-2 transition-colors ${
+                                                isOutofStock
+                                                    ? "text-gray-500"
+                                                    : "text-gray-900 group-hover:text-orange-600"
+                                            }`}
+                                        >
+                                            {product.name}
+                                        </h3>
+                                        <div className="flex items-center justify-between pt-3 mt-auto z-20">
+                                            <span
+                                                className={`font-extrabold text-lg ${
+                                                    isOutofStock
+                                                        ? "text-gray-400 line-through"
+                                                        : "text-orange-600"
+                                                }`}
+                                            >
+                                                {formatRupiah(product.price)}
+                                            </span>
+                                            <button
+                                                onClick={(e) => {
+                                                    // Hentikan propagasi event biar gak bentrok sama Link
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+
+                                                    if (!isOutofStock) {
+                                                        addToLocalCart(
+                                                            e,
+                                                            product,
+                                                        );
+                                                    }
+                                                }}
+                                                disabled={isOutofStock}
+                                                className={`flex items-center justify-center w-10 h-10 transition-colors rounded-full shadow-sm ${
+                                                    isOutofStock
+                                                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                                        : "bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white"
+                                                }`}
+                                                title={
+                                                    isOutofStock
+                                                        ? "Stok Habis"
+                                                        : "Tambah ke Keranjang"
+                                                }
+                                            >
+                                                <Plus className="w-5 h-5" />
+                                            </button>
                                         </div>
-                                    )}
-                                    {/* Badge Stok */}
-                                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur text-white text-[10px] px-2 py-1 rounded font-medium">
-                                        Stok: {product.stock}
                                     </div>
-                                </div>
-
-                                {/* Content */}
-                                <div className="p-4 flex-1 flex flex-col">
-                                    {/* Nama Toko */}
-                                    <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
-                                        <Store className="w-3 h-3" />
-                                        <span className="truncate">
-                                            {product.store?.name || "UMKM"}
-                                        </span>
-                                    </div>
-
-                                    {/* Nama Produk */}
-                                    <h3 className="font-bold text-gray-900 mb-1 line-clamp-2 group-hover:text-orange-600 transition-colors">
-                                        {product.name}
-                                    </h3>
-
-                                    {/* Rating Fake (Pemanis) */}
-                                    <div className="flex items-center gap-1 mb-3">
-                                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                                        <span className="text-xs text-gray-500">
-                                            4.8
-                                        </span>
-                                    </div>
-
-                                    {/* Footer Card: Harga & Button */}
-                                    <div className="mt-auto flex items-center justify-between">
-                                        <span className="font-extrabold text-lg text-orange-600">
-                                            {formatRupiah(product.price)}
-                                        </span>
-                                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-orange-600 group-hover:text-white transition-colors">
-                                            <ShoppingBag className="w-4 h-4" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
-                        ))}
+                                </Link>
+                            );
+                        })}
                     </div>
                 ) : (
-                    <div className="text-center py-20 bg-white rounded-xl border border-dashed">
-                        <Search className="mx-auto h-12 w-12 text-gray-300" />
+                    <div className="py-20 text-center bg-white border border-dashed rounded-xl">
+                        <Search className="w-12 h-12 mx-auto text-gray-300" />
                         <h3 className="mt-2 text-sm font-semibold text-gray-900">
                             Produk tidak ditemukan
                         </h3>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Coba kata kunci lain atau reset filter.
-                        </p>
                         <Button
                             onClick={clearFilters}
                             variant="outline"
@@ -279,17 +438,42 @@ export default function Welcome({ auth, products, categories, filters }) {
                 )}
             </main>
 
-            <footer className="bg-gray-900 text-white mt-20 py-12">
-                <div className="max-w-7xl mx-auto px-4 text-center">
-                    <h3 className="text-2xl font-bold mb-4">E-Catalog UMKM</h3>
-                    <p className="text-gray-400 mb-8 max-w-md mx-auto">
-                        Platform digital untuk memajukan UMKM lokal agar bisa
-                        bersaing di era digital.
+            {/* --- 4. FOOTER DINAMIS --- */}
+            <footer className="py-12 mt-20 text-white bg-gray-900 border-t-4 border-orange-500">
+                <div className="px-4 mx-auto text-center max-w-7xl">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                        {storeInfo?.logo ? (
+                            <img
+                                src={`/storage/${storeInfo.logo}`}
+                                alt="Logo Footer"
+                                className="w-10 h-10 rounded-full object-cover bg-white p-0.5"
+                            />
+                        ) : (
+                            <Store className="w-8 h-8 text-orange-500" />
+                        )}
+                        <h3 className="text-2xl font-bold">
+                            {storeInfo?.name || "Toko Kami"}
+                        </h3>
+                    </div>
+                    <p className="max-w-md mx-auto mb-8 text-gray-400">
+                        {storeInfo?.address
+                            ? `📍 ${storeInfo.address}`
+                            : "Melayani pelanggan dengan sepenuh hati."}
                     </p>
-                    <p className="text-sm text-gray-600">
-                        &copy; {new Date().getFullYear()} Dibuat dengan ❤️ oleh
-                        Mahasiswa Poltek.
-                    </p>
+                    <div className="flex flex-col items-center gap-2">
+                        <p className="text-sm text-gray-500">
+                            &copy; {new Date().getFullYear()}{" "}
+                            {storeInfo?.name || "Toko Kami"}. All rights
+                            reserved.
+                        </p>
+                        {/* Pintu Rahasia Admin */}
+                        <Link
+                            href={route("login")}
+                            className="mt-2 text-xs text-gray-800 transition-colors hover:text-gray-400"
+                        >
+                            Admin Area
+                        </Link>
+                    </div>
                 </div>
             </footer>
         </div>

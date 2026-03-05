@@ -83,11 +83,13 @@ class AuthenticatedSessionController extends Controller
         $role = $request->user()->role;
 
         if ($role === 'admin') {
-            return redirect(route('admin.dashboard'));
+            // ✅ Fix: Gunakan intended() agar kembali ke halaman terakhir (fallback ke dashboard)
+            return redirect()->intended(route('admin.dashboard'));
         }
 
         if ($role === 'seller') {
-            return redirect(route('seller.dashboard'));
+            // ✅ Fix: Gunakan intended() agar kembali ke halaman terakhir (fallback ke dashboard)
+            return redirect()->intended(route('seller.dashboard'));
         }
 
         // Kalau Customer biasa, lempar ke Homepage (bukan dashboard)

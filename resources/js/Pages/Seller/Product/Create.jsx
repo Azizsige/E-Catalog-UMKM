@@ -39,18 +39,18 @@ export default function ProductCreate({ categories }) {
     const handleGenerateAI = async () => {
         if (!data.name || data.name.length < 3) {
             alert(
-                "Tolong isi Nama Produk dulu ya, biar AI-nya tau mau nulis apa! 😉"
+                "Tolong isi Nama Produk dulu ya, biar AI-nya tau mau nulis apa! 😉",
             );
             return;
         }
         setIsGenerating(true);
         try {
             const response = await axios.post(
-                route("seller.products.generate-ai"),
+                route("admin.products.generate-ai"),
                 {
                     name: data.name,
                     keywords: "Enak, Murah, Terlaris",
-                }
+                },
             );
             if (response.data.success) {
                 setData("description", response.data.description);
@@ -98,7 +98,7 @@ export default function ProductCreate({ categories }) {
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const files = Array.from(e.dataTransfer.files);
             const imageFiles = files.filter((file) =>
-                file.type.startsWith("image/")
+                file.type.startsWith("image/"),
             );
             if (imageFiles.length > 0) {
                 setData("extra_images", [...data.extra_images, ...imageFiles]);
@@ -108,7 +108,7 @@ export default function ProductCreate({ categories }) {
 
     const removeGalleryImage = (indexToRemove) => {
         const updatedImages = data.extra_images.filter(
-            (_, index) => index !== indexToRemove
+            (_, index) => index !== indexToRemove,
         );
         setData("extra_images", updatedImages);
     };
@@ -132,7 +132,7 @@ export default function ProductCreate({ categories }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route("seller.products.store"));
+        post(route("admin.products.store"));
     };
 
     return (
@@ -142,7 +142,7 @@ export default function ProductCreate({ categories }) {
             <div className="max-w-3xl mx-auto pb-10">
                 {/* Header Page */}
                 <div className="flex items-center gap-4 mb-6">
-                    <Link href={route("seller.products.index")}>
+                    <Link href={route("admin.products.index")}>
                         <Button variant="outline" size="icon">
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
@@ -195,7 +195,7 @@ export default function ProductCreate({ categories }) {
                                         onChange={(e) =>
                                             setData(
                                                 "category_id",
-                                                e.target.value
+                                                e.target.value,
                                             )
                                         }
                                     >
@@ -297,7 +297,7 @@ export default function ProductCreate({ categories }) {
                                         <>
                                             <img
                                                 src={URL.createObjectURL(
-                                                    data.image
+                                                    data.image,
                                                 )}
                                                 alt="Main Preview"
                                                 className="absolute inset-0 w-full h-full object-contain p-2"
@@ -392,7 +392,7 @@ export default function ProductCreate({ categories }) {
                                                 >
                                                     <img
                                                         src={URL.createObjectURL(
-                                                            file
+                                                            file,
                                                         )}
                                                         alt={`Preview ${index}`}
                                                         className="w-full h-full object-cover"
@@ -401,7 +401,7 @@ export default function ProductCreate({ categories }) {
                                                         type="button"
                                                         onClick={() =>
                                                             removeGalleryImage(
-                                                                index
+                                                                index,
                                                             )
                                                         }
                                                         className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-600"
@@ -409,7 +409,7 @@ export default function ProductCreate({ categories }) {
                                                         <X className="w-3 h-3" />
                                                     </button>
                                                 </div>
-                                            )
+                                            ),
                                         )}
                                     </div>
                                 )}

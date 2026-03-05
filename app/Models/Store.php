@@ -20,6 +20,8 @@ class Store extends Model
         // --- TAMBAHKAN 2 BARIS INI ---
         'checkout_mode',
         'phone_number', 
+        'bank_name',     // <--- WAJIB DITAMBAHIN
+        'bank_account',  // <--- WAJIB DITAMBAHIN
     ];
 
     // Relasi ke User

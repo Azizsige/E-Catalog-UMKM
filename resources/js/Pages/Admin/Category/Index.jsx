@@ -1,5 +1,5 @@
 import { useState } from "react";
-import AdminLayout from "@/Layouts/AdminLayout";
+import SellerLayout from "@/Layouts/SellerLayout";
 import { Head, useForm, router } from "@inertiajs/react";
 import { Button } from "@/Components/ui/button";
 import {
@@ -111,7 +111,7 @@ export default function CategoryIndex({ categories }) {
     };
 
     return (
-        <AdminLayout>
+        <SellerLayout>
             <Head title="Manajemen Kategori" />
 
             <div className="flex items-center justify-between mb-6">
@@ -278,6 +278,6 @@ export default function CategoryIndex({ categories }) {
                     </TableBody>
                 </Table>
             </div>
-        </AdminLayout>
+        </SellerLayout>
     );
 }

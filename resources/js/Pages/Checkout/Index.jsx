@@ -1,95 +1,153 @@
-import { Head, useForm, router } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
 import Navbar from "@/Components/Navbar";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
 import {
     MapPin,
     Truck,
-    Plus,
-    CheckCircle,
-    Store,
-    Trash2,
-    AlertTriangle,
     Loader2,
-} from "lucide-react"; // Tambah Icon
-import { useState } from "react";
+    CreditCard,
+    Send,
+    AlertCircle,
+} from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import axios from "axios";
 
-export default function CheckoutIndex({ carts, addresses, user }) {
-    // --- STATE UTAMA ---
-    const [isAddingAddress, setIsAddingAddress] = useState(false);
-
-    // Default pilih alamat primary atau yg pertama
-    const defaultAddress =
-        addresses.find((addr) => addr.is_primary) || addresses[0] || null;
-    const [selectedAddress, setSelectedAddress] = useState(defaultAddress);
-
-    // --- STATE MODAL HAPUS ---
-    const [addressToDelete, setAddressToDelete] = useState(null); // Data alamat yg mau dihapus
-    const [isDeleting, setIsDeleting] = useState(false); // Loading state saat hapus
-
-    // Form Tambah Alamat
-    const { data, setData, post, processing, errors, reset } = useForm({
-        recipient_name: user.name,
+export default function CheckoutIndex({ store, midtransClientKey }) {
+    const [cartItems, setCartItems] = useState([]);
+    const [processing, setProcessing] = useState(false);
+    const [formData, setFormData] = useState({
+        recipient_name: "",
         phone_number: "",
         address_line: "",
         city: "",
         postal_code: "",
     });
+    const [errors, setErrors] = useState({});
 
-    // --- LOGIC TAMBAH ALAMAT ---
-    const handleSaveAddress = (e) => {
-        e.preventDefault();
-        post(route("checkout.address.store"), {
-            preserveScroll: true, // Biar gak scroll ke atas
-            onSuccess: (page) => {
-                console.log("Sukses simpan!", page); // Cek console
-                setIsAddingAddress(false);
-                reset();
-                // Otomatis pilih alamat yang baru dibuat (kalau mau canggih)
-                // setSelectedAddress(page.props.addresses[page.props.addresses.length - 1]);
-            },
-            onError: (errors) => {
-                console.error("Gagal Validasi:", errors); // Cek console kalau gagal
-                // alert("Ada data yang belum lengkap!"); // Opsional
-            },
-        });
+    // 1. Validasi apakah form sudah terisi semua (untuk disable button)
+    const isFormComplete = useMemo(() => {
+        return Object.values(formData).every((value) => value.trim() !== "");
+    }, [formData]);
+
+    useEffect(() => {
+        if (store?.checkout_mode === "midtrans") {
+            const script = document.createElement("script");
+            script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+            script.setAttribute("data-client-key", midtransClientKey);
+            document.body.appendChild(script);
+        }
+    }, [store, midtransClientKey]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const selectedIds = params.getAll("ids[]");
+        const storedCart = localStorage.getItem("guest_cart");
+        if (storedCart) {
+            const parsedCart = JSON.parse(storedCart);
+            if (selectedIds.length > 0) {
+                const itemsToCheckout = parsedCart.items.filter((item) =>
+                    selectedIds.includes(item.id),
+                );
+                setCartItems(itemsToCheckout);
+            } else {
+                setCartItems(parsedCart.items);
+            }
+        }
+    }, []);
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.id]: e.target.value });
+        setErrors({ ...errors, [e.target.id]: null });
     };
 
-    // --- LOGIC HAPUS ALAMAT (MODAL STYLE) ---
-
-    // 1. Buka Modal
-    const openDeleteModal = (addr) => {
-        setAddressToDelete(addr);
+    const clearPurchasedItems = () => {
+        const storedCart = JSON.parse(localStorage.getItem("guest_cart"));
+        const remainingItems = storedCart.items.filter(
+            (storedItem) => !cartItems.find((c) => c.id === storedItem.id),
+        );
+        localStorage.setItem(
+            "guest_cart",
+            JSON.stringify({
+                items: remainingItems,
+                count: remainingItems.reduce((acc, item) => acc + item.qty, 0),
+            }),
+        );
+        window.dispatchEvent(new Event("guest-cart-updated"));
     };
 
-    // 2. Eksekusi Hapus
-    const confirmDeleteAddress = () => {
-        if (!addressToDelete) return;
+    const handleCheckout = async () => {
+        if (!isFormComplete) return;
 
-        setIsDeleting(true); // Mulai Loading
+        setProcessing(true);
+        setErrors({});
 
-        router.delete(route("checkout.address.destroy", addressToDelete.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                // Kalau alamat yg dihapus itu yg lagi dipilih, reset selection
-                if (selectedAddress?.id === addressToDelete.id) {
-                    setSelectedAddress(null);
+        const itemsPayload = cartItems.map((item) => ({
+            id: item.product.id,
+            qty: item.qty,
+        }));
+
+        try {
+            const response = await axios.post(route("checkout.store"), {
+                ...formData,
+                items: itemsPayload,
+            });
+
+            if (response.data.success) {
+                // --- SIMPAN KE RIWAYAT LOKAL ---
+                const savedOrders = JSON.parse(
+                    localStorage.getItem("guest_orders") || "[]",
+                );
+                // Masukin invoice baru ke urutan paling atas, maksimal simpan 5 pesanan terakhir
+                const newOrders = [
+                    response.data.invoice_code,
+                    ...savedOrders.filter(
+                        (inv) => inv !== response.data.invoice_code,
+                    ),
+                ].slice(0, 5);
+                localStorage.setItem("guest_orders", JSON.stringify(newOrders));
+
+                if (response.data.is_midtrans && response.data.snap_token) {
+                    window.snap.pay(response.data.snap_token, {
+                        onSuccess: function (result) {
+                            window.onbeforeunload = null;
+                            clearPurchasedItems();
+                            router.get(`/order/${response.data.invoice_code}`);
+                        },
+                        onPending: function (result) {
+                            window.onbeforeunload = null;
+                            clearPurchasedItems();
+                            router.get(`/order/${response.data.invoice_code}`);
+                        },
+                        onError: function (result) {
+                            window.onbeforeunload = null;
+                            alert("Pembayaran Gagal!");
+                            setProcessing(false);
+                        },
+                        onClose: function () {
+                            window.onbeforeunload = null;
+                            clearPurchasedItems();
+                            router.get(`/order/${response.data.invoice_code}`);
+                        },
+                    });
+                } else {
+                    // --- BAGIAN INI YANG DIBENERIN ---
+                    // Langsung redirect kalau bukan Midtrans (berarti WA/Manual)
+                    clearPurchasedItems();
+                    router.get(`/order/${response.data.invoice_code}`);
                 }
-            },
-            onFinish: () => {
-                setIsDeleting(false); // Stop Loading
-                setAddressToDelete(null); // Tutup Modal
-            },
-        });
+            }
+        } catch (error) {
+            setProcessing(false);
+            if (error.response?.status === 422) {
+                setErrors(
+                    error.response.data.errors || {
+                        general: error.response.data.message,
+                    },
+                );
+            }
+        }
     };
-
-    // Hitung-hitungan Duit
-    const totalBarang = carts.reduce(
-        (acc, item) => acc + item.product.price * item.qty,
-        0
-    );
-    const ongkir = 15000;
-    const grandTotal = totalBarang + ongkir;
 
     const formatRupiah = (n) =>
         new Intl.NumberFormat("id-ID", {
@@ -98,419 +156,166 @@ export default function CheckoutIndex({ carts, addresses, user }) {
             minimumFractionDigits: 0,
         }).format(n);
 
+    const totalBarang = cartItems.reduce(
+        (acc, item) => acc + item.product.price * item.qty,
+        0,
+    );
+    const ongkir = 15000;
+    const grandTotal = totalBarang + ongkir;
+
+    if (cartItems.length === 0)
+        return <div className="p-10 text-center">Memuat...</div>;
+
+    const isMidtrans = store?.checkout_mode === "midtrans";
+
     return (
         <div className="min-h-screen bg-gray-50 font-sans">
-            <Head title="Checkout Pengiriman" />
+            <Head title="Checkout" />
             <Navbar />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <h1 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                    <Truck className="w-6 h-6 text-orange-600" />
-                    Pengiriman & Pembayaran
+            <div className="max-w-7xl mx-auto px-4 py-8">
+                <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <Truck className="text-orange-600" /> Pengiriman &
+                    Pembayaran
                 </h1>
 
                 <div className="flex flex-col lg:flex-row gap-8">
-                    {/* --- KOLOM KIRI --- */}
                     <div className="flex-1 space-y-6">
-                        {/* 1. BAGIAN ALAMAT */}
                         <div className="bg-white p-6 rounded-xl border shadow-sm">
-                            <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                                <MapPin className="w-5 h-5 text-gray-500" />{" "}
-                                Alamat Pengiriman
+                            <h2 className="font-semibold mb-4 flex items-center gap-2">
+                                <MapPin size={18} /> Alamat Pengiriman
                             </h2>
-
-                            {/* LIST ALAMAT (DENGAN JARAK/GAP YANG BENAR) */}
-                            {addresses.length > 0 && !isAddingAddress && (
-                                // FIX: Pakai 'flex flex-col gap-4' biar ada jarak antar kartu
-                                <div className="flex flex-col gap-4 mb-4">
-                                    {addresses.map((addr) => (
-                                        <div
-                                            key={addr.id}
-                                            onClick={() =>
-                                                setSelectedAddress(addr)
-                                            }
-                                            className={`p-4 rounded-lg border-2 cursor-pointer transition-all relative group ${
-                                                selectedAddress?.id === addr.id
-                                                    ? "border-orange-500 bg-orange-50"
-                                                    : "border-gray-200 hover:border-orange-200"
-                                            }`}
-                                        >
-                                            <div className="flex justify-between items-start pr-8">
-                                                <div>
-                                                    <p className="font-bold text-gray-800">
-                                                        {addr.recipient_name}{" "}
-                                                        <span className="font-normal text-gray-500">
-                                                            ({addr.phone_number}
-                                                            )
-                                                        </span>
-                                                    </p>
-                                                    <p className="text-sm text-gray-600 mt-1">
-                                                        {addr.address_line},{" "}
-                                                        {addr.city},{" "}
-                                                        {addr.postal_code}
-                                                    </p>
-                                                    {addr.is_primary && (
-                                                        <span className="text-xs bg-gray-200 px-2 py-0.5 rounded text-gray-600 mt-2 inline-block">
-                                                            Utama
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {selectedAddress?.id ===
-                                                    addr.id && (
-                                                    <CheckCircle className="text-orange-600 w-5 h-5 absolute right-4 top-4" />
-                                                )}
-                                            </div>
-
-                                            {/* TOMBOL TRASH (MEMICU MODAL) */}
-                                            {selectedAddress?.id !==
-                                                addr.id && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        openDeleteModal(addr);
-                                                    }}
-                                                    className="absolute right-4 bottom-4 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
-                                                    title="Hapus Alamat"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                    <label className="text-xs font-bold uppercase text-gray-500">
+                                        Nama Lengkap
+                                    </label>
+                                    <Input
+                                        id="recipient_name"
+                                        onChange={handleChange}
+                                        placeholder="Contoh: Budi Santoso"
+                                        className={
+                                            errors.recipient_name &&
+                                            "border-red-500"
+                                        }
+                                    />
                                 </div>
-                            )}
-
-                            {/* Tombol Tambah Alamat */}
-                            {!isAddingAddress && (
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setIsAddingAddress(true)}
-                                    className="w-full border-dashed border-2 h-12"
-                                >
-                                    <Plus className="w-4 h-4 mr-2" /> Tambah
-                                    Alamat Baru
-                                </Button>
-                            )}
-
-                            {/* Form Tambah Alamat */}
-                            {isAddingAddress && (
-                                <form
-                                    onSubmit={handleSaveAddress}
-                                    className="space-y-4 bg-gray-50 p-4 rounded-lg border animate-in fade-in"
-                                >
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-xs font-medium">
-                                                Nama Penerima
-                                            </label>
-                                            <Input
-                                                value={data.recipient_name}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "recipient_name",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                placeholder="Contoh: Mas Joni"
-                                                className={
-                                                    errors.recipient_name
-                                                        ? "border-red-500"
-                                                        : ""
-                                                } // Merah kalau error
-                                            />
-                                            {/* 👇 TAMBAHKAN INI UNTUK LIHAT ERROR */}
-                                            {errors.recipient_name && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.recipient_name}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-medium">
-                                                No. WhatsApp
-                                            </label>
-                                            <Input
-                                                value={data.phone_number}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "phone_number",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                placeholder="0812..."
-                                                className={
-                                                    errors.phone_number
-                                                        ? "border-red-500"
-                                                        : ""
-                                                }
-                                            />
-                                            {errors.phone_number && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.phone_number}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-medium">
-                                            Alamat Lengkap
-                                        </label>
-                                        <Input
-                                            value={data.address_line}
-                                            onChange={(e) =>
-                                                setData(
-                                                    "address_line",
-                                                    e.target.value
-                                                )
-                                            }
-                                            placeholder="Jl. Mawar No 12..."
-                                            className={
-                                                errors.address_line
-                                                    ? "border-red-500"
-                                                    : ""
-                                            }
-                                        />
-                                        {errors.address_line && (
-                                            <p className="text-xs text-red-500 mt-1">
-                                                {errors.address_line}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-xs font-medium">
-                                                Kota
-                                            </label>
-                                            <Input
-                                                value={data.city}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "city",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                placeholder="Jakarta Selatan"
-                                                className={
-                                                    errors.city
-                                                        ? "border-red-500"
-                                                        : ""
-                                                }
-                                            />
-                                            {errors.city && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.city}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-medium">
-                                                Kode Pos
-                                            </label>
-                                            <Input
-                                                value={data.postal_code}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "postal_code",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                placeholder="12345"
-                                                className={
-                                                    errors.postal_code
-                                                        ? "border-red-500"
-                                                        : ""
-                                                }
-                                            />
-                                            {errors.postal_code && (
-                                                <p className="text-xs text-red-500 mt-1">
-                                                    {errors.postal_code}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2 justify-end mt-2">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            onClick={() => {
-                                                setIsAddingAddress(false);
-                                                reset();
-                                            }}
-                                        >
-                                            Batal
-                                        </Button>
-                                        <Button
-                                            type="submit"
-                                            disabled={processing}
-                                        >
-                                            {processing
-                                                ? "Menyimpan..."
-                                                : "Simpan Alamat"}
-                                        </Button>
-                                    </div>
-                                </form>
-                            )}
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-gray-500">
+                                        No. WhatsApp
+                                    </label>
+                                    <Input
+                                        id="phone_number"
+                                        onChange={handleChange}
+                                        placeholder="0812xxxx"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-gray-500">
+                                        Kota
+                                    </label>
+                                    <Input
+                                        id="city"
+                                        onChange={handleChange}
+                                        placeholder="Nama Kota"
+                                    />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="text-xs font-bold uppercase text-gray-500">
+                                        Alamat Lengkap
+                                    </label>
+                                    <Input
+                                        id="address_line"
+                                        onChange={handleChange}
+                                        placeholder="Nama Jalan, Blok, No Rumah"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold uppercase text-gray-500">
+                                        Kode Pos
+                                    </label>
+                                    <Input
+                                        id="postal_code"
+                                        onChange={handleChange}
+                                        placeholder="12345"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
-                        {/* 2. DAFTAR BARANG */}
-                        <div className="bg-white p-6 rounded-xl border shadow-sm">
-                            <h2 className="font-semibold text-lg mb-4">
-                                Rincian Pesanan
+                        {/* Ringkasan Item */}
+                        <div className="bg-white p-6 rounded-xl border">
+                            <h2 className="font-semibold mb-4 text-gray-400">
+                                Barang yang dibeli
                             </h2>
-                            <div className="divide-y">
-                                {carts.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="py-4 flex gap-4"
-                                    >
-                                        <div className="w-16 h-16 bg-gray-100 rounded border overflow-hidden">
-                                            <img
-                                                src={`/storage/${item.product.image}`}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="font-medium text-gray-900">
-                                                {item.product.name}
-                                            </p>
-                                            <p className="text-xs text-gray-500 flex items-center gap-1">
-                                                <Store className="w-3 h-3" />{" "}
-                                                {item.product.user?.store
-                                                    ?.name || "Toko"}
-                                            </p>
-                                            <p className="text-sm mt-1">
-                                                {item.qty} x{" "}
-                                                {formatRupiah(
-                                                    item.product.price
-                                                )}
-                                            </p>
-                                        </div>
-                                        <div className="font-semibold text-gray-900">
-                                            {formatRupiah(
-                                                item.qty * item.product.price
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            {cartItems.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className="flex justify-between py-2 border-b last:border-0"
+                                >
+                                    <span className="text-sm">
+                                        {item.product.name} (x{item.qty})
+                                    </span>
+                                    <span className="font-medium">
+                                        {formatRupiah(
+                                            item.product.price * item.qty,
+                                        )}
+                                    </span>
+                                </div>
+                            ))}
                         </div>
                     </div>
 
-                    {/* --- KOLOM KANAN: RINGKASAN --- */}
                     <div className="lg:w-1/3">
-                        <div className="bg-white p-6 rounded-xl border shadow-sm sticky top-24">
+                        <div className="bg-white p-6 rounded-xl border shadow-md sticky top-24">
                             <h3 className="font-bold text-lg mb-4">
-                                Ringkasan Pembayaran
+                                Total Pembayaran
                             </h3>
-                            <div className="space-y-3 mb-6 text-sm text-gray-600">
-                                <div className="flex justify-between">
-                                    <span>Total Harga Barang</span>
+                            <div className="space-y-2 mb-4">
+                                <div className="flex justify-between text-gray-600">
+                                    <span>Subtotal</span>
                                     <span>{formatRupiah(totalBarang)}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span>Biaya Pengiriman</span>
+                                <div className="flex justify-between text-gray-600">
+                                    <span>Ongkos Kirim</span>
                                     <span>{formatRupiah(ongkir)}</span>
                                 </div>
-                                <hr />
-                                <div className="flex justify-between text-gray-900 font-bold text-lg">
-                                    <span>Total Tagihan</span>
-                                    <span className="text-orange-600">
-                                        {formatRupiah(grandTotal)}
-                                    </span>
+                                <div className="flex justify-between font-bold text-xl pt-2 border-t text-orange-600">
+                                    <span>Total</span>
+                                    <span>{formatRupiah(grandTotal)}</span>
                                 </div>
                             </div>
-                            <Button
-                                className="w-full h-12 text-lg font-bold bg-primary hover:bg-orange-600"
-                                disabled={!selectedAddress || processing}
-                                onClick={() => {
-                                    if (!selectedAddress) return;
 
-                                    const cartIds = carts.map(
-                                        (item) => item.id
-                                    );
-
-                                    router.post(
-                                        route("checkout.store"),
-                                        {
-                                            address_id: selectedAddress.id,
-                                            cart_ids: cartIds,
-                                        },
-                                        {
-                                            // --- TAMBAHAN DEBUGGING ---
-                                            onError: (errors) => {
-                                                console.error(
-                                                    "Gagal Checkout:",
-                                                    errors
-                                                );
-                                                alert(
-                                                    "Gagal: " +
-                                                        JSON.stringify(errors)
-                                                ); // Munculkan error kasar dulu biar tau
-                                            },
-                                        }
-                                    );
-                                }}
-                            >
-                                Buat Pesanan
-                            </Button>
-                            {!selectedAddress && (
-                                <p className="text-xs text-red-500 text-center mt-2">
-                                    Pilih alamat dulu ya.
-                                </p>
+                            {/* ALERT JIKA FORM BELUM LENGKAP */}
+                            {!isFormComplete && (
+                                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded-lg mb-4 text-xs font-medium border border-amber-200">
+                                    <AlertCircle size={14} /> Lengkapi data
+                                    pengiriman untuk melanjutkan
+                                </div>
                             )}
+
+                            <Button
+                                className={`w-full h-14 text-lg font-bold ${isMidtrans ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"}`}
+                                disabled={processing || !isFormComplete}
+                                onClick={handleCheckout}
+                            >
+                                {processing ? (
+                                    <Loader2 className="animate-spin" />
+                                ) : isMidtrans ? (
+                                    <>
+                                        <CreditCard className="mr-2" /> Bayar
+                                        Sekarang
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="mr-2" /> Pesan via WA
+                                    </>
+                                )}
+                            </Button>
                         </div>
                     </div>
                 </div>
             </div>
-
-            {/* --- MODAL KONFIRMASI HAPUS ALAMAT (BACKDROP BLUR) --- */}
-            {addressToDelete && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden scale-100 animate-in zoom-in-95 duration-200">
-                        <div className="p-6 text-center">
-                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <AlertTriangle className="w-8 h-8 text-red-600" />
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">
-                                Hapus Alamat?
-                            </h3>
-                            <p className="text-gray-500 text-sm">
-                                Yakin mau hapus alamat penerima <br />
-                                <span className="font-bold text-gray-800">
-                                    "{addressToDelete.recipient_name}"
-                                </span>
-                                ?
-                            </p>
-                        </div>
-
-                        <div className="flex border-t bg-gray-50">
-                            <button
-                                onClick={() =>
-                                    !isDeleting && setAddressToDelete(null)
-                                }
-                                disabled={isDeleting}
-                                className="flex-1 py-4 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors border-r disabled:opacity-50"
-                            >
-                                Batal
-                            </button>
-                            <button
-                                onClick={confirmDeleteAddress}
-                                disabled={isDeleting}
-                                className="flex-1 py-4 text-sm font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                                {isDeleting ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        Menghapus...
-                                    </>
-                                ) : (
-                                    "Ya, Hapus"
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

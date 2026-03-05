@@ -29,7 +29,7 @@ export default function StoreEdit({ store }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route("seller.store.update"));
+        post(route("admin.store.update"));
     };
 
     return (
@@ -169,7 +169,7 @@ export default function StoreEdit({ store }) {
                                         onChange={(e) =>
                                             setData(
                                                 "bank_account",
-                                                e.target.value
+                                                e.target.value,
                                             )
                                         }
                                         className="bg-white border-blue-200 focus:border-blue-500"

@@ -3,95 +3,61 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
-use App\Http\Controllers\Seller\DashboardController as SellerDashboardController;
+// Controller Admin (Pemilik UMKM)
+use App\Http\Controllers\Seller\DashboardController as MainDashboardController;
+use App\Http\Controllers\Seller\ProductController as MainProductController;
+use App\Http\Controllers\Seller\StoreController as MainStoreController;
+use App\Http\Controllers\Seller\TransactionController as MainTransactionController;
+use App\Http\Controllers\Admin\CategoryController; 
+// Controller Publik (Guest)
 use App\Http\Controllers\Public\ProductController as PublicProductController;
-use App\Http\Controllers\Seller\StoreController as SellerStoreController;
-use App\Http\Controllers\Public\StoreController as PublicStoreController;
-use App\Http\Controllers\Public\CartController; 
-use App\Http\Controllers\Admin\TransactionController as AdminTransactionController;
-use App\Http\Controllers\Admin\UserController; // Pastikan ini diimport
+use App\Http\Controllers\Public\CartController;
+use App\Http\Controllers\Public\CheckoutController;
+use App\Http\Controllers\Public\OrderController;
 
-// --- ROUTE PUBLIK ---
+// ==========================================
+// 1. AREA PUBLIK (Katalog & Guest Checkout)
+// ==========================================
 Route::get('/', [PublicProductController::class, 'index'])->name('home');
 Route::get('/p/{slug}', [PublicProductController::class, 'show'])->name('product.detail');
-Route::get('/toko/{slug}', [PublicStoreController::class, 'show'])->name('store.show');
+
+// Keranjang (Akses Publik)
+Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
 Route::post('/cart/add', [CartController::class, 'store'])->name('cart.add');
+Route::patch('/cart/{id}', [CartController::class, 'update'])->name('cart.update');
+Route::delete('/cart/{id}', [CartController::class, 'destroy'])->name('cart.destroy');
 
-// --- ROUTE APPROVAL (Auth Only) ---
-Route::get('/approval', function () {
-    return Inertia::render('Auth/Approval'); 
-})->name('approval.notice')->middleware('auth');
+// Checkout (Akses Publik)
+Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+Route::post('/checkout/process', [CheckoutController::class, 'store'])->name('checkout.store');
 
-// --- GROUP ROUTE KHUSUS YANG SUDAH LOGIN ---
-Route::middleware(['auth', 'verified'])->group(function () {
+// Route untuk Lacak Pesanan / Invoice Publik
+Route::get('/order/{invoice}', [\App\Http\Controllers\Public\OrderController::class, 'track'])
+    ->name('order.track')
+    ->where('invoice', '.*'); // <--- INI KUNCI MAGIC-NYA
 
-    // --- FITUR CUSTOMER UMUM ---
-    Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
-    Route::patch('/cart/{id}', [CartController::class, 'update'])->name('cart.update');
-    Route::delete('/cart/{id}', [CartController::class, 'destroy'])->name('cart.destroy');
+// Webhook Midtrans (Jangan dikasih auth/CSRF karena diakses oleh server Midtrans)
+// Route::post('/midtrans/callback', [CheckoutController::class, 'callback']); 
+
+// ==========================================
+// 2. AREA ADMIN TUNGGAL (Pemilik UMKM)
+// ==========================================
+Route::middleware(['auth'])->prefix('admin')->group(function () {
+    Route::get('/dashboard', [MainDashboardController::class, 'index'])->name('admin.dashboard');
     
-    Route::get('/checkout', [\App\Http\Controllers\Public\CheckoutController::class, 'index'])->name('checkout.index');
-    Route::post('/checkout/process', [\App\Http\Controllers\Public\CheckoutController::class, 'store'])->name('checkout.store');
+    // Kelola Menu & Kategori
+    Route::resource('/products', MainProductController::class)->names('admin.products');
+    Route::resource('/categories', CategoryController::class)->names('admin.categories');
     
-    Route::get('/my-orders', [\App\Http\Controllers\Public\TransactionController::class, 'index'])->name('transactions.index');
+    // Kelola Transaksi Masuk (WA & Midtrans)
+    Route::get('/transactions', [MainTransactionController::class, 'index'])->name('admin.transactions.index');
+    Route::get('/transactions/{id}', [MainTransactionController::class, 'show'])->name('admin.transactions.show');
+    Route::put('/transactions/{id}', [MainTransactionController::class, 'update'])->name('admin.transactions.update');
+    Route::get('/transactions/{id}/print-label', [MainTransactionController::class, 'printLabel'])->name('admin.transactions.print');
     
-    // Perbaikan konsistensi nama route (transactions vs transaction)
-    Route::get('/transaction/{id}', [\App\Http\Controllers\Public\TransactionController::class, 'show'])->name('transaction.show'); 
-    // Note: Pastikan di React pakai route('transaction.show', id)
-
-    Route::put('/my-orders/{id}', [\App\Http\Controllers\Public\TransactionController::class, 'update'])->name('my.orders.update');
-
-    // --- GRUP KHUSUS ADMIN ---
-    Route::middleware(['role:admin', 'check.status'])->prefix('admin')->group(function () {
-        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
-        
-        Route::resource('/categories', \App\Http\Controllers\Admin\CategoryController::class)->names('admin.categories');
-        
-        Route::get('/store-approval', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'index'])->name('admin.store-approval.index');
-        Route::put('/store-approval/{user}/approve', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'approve'])->name('admin.store-approval.approve');
-        Route::delete('/store-approval/{user}/reject', [\App\Http\Controllers\Admin\StoreApprovalController::class, 'reject'])->name('admin.store-approval.reject');
-        
-        Route::get('/transactions', [AdminTransactionController::class, 'index'])->name('admin.transactions.index');
-        Route::patch('/transactions/{id}', [AdminTransactionController::class, 'update'])->name('admin.transactions.update');
-
-        // 👇 PERBAIKAN PENTING: Tambahkan 'admin.' di nama route
-        Route::get('/users', [UserController::class, 'index'])->name('admin.users.index');
-        Route::put('/users/{id}/toggle', [UserController::class, 'toggleStatus'])->name('admin.users.toggle');
-    });
-
-    // --- GRUP KHUSUS SELLER ---
-    Route::prefix('seller')->group(function () {
-
-        // A. AREA BEBAS (Boleh diakses saat status 'pending')
-        Route::middleware(['auth', 'role:seller'])->group(function () {
-            Route::get('/register', [SellerStoreController::class, 'edit'])->name('seller.register');
-            Route::get('/store/settings', [SellerStoreController::class, 'edit'])->name('seller.store.edit');
-            Route::post('/store/settings', [SellerStoreController::class, 'update'])->name('seller.store.update');
-            
-            Route::get('/rejected', function () {
-                return Inertia::render('Seller/Rejected');
-            })->name('seller.rejected');
-        });
-
-        // B. AREA TERKUNCI (Wajib status 'approved')
-        Route::middleware(['auth', 'role:seller', 'check.status'])->group(function () {
-            Route::get('/dashboard', [SellerDashboardController::class, 'index'])->name('seller.dashboard');
-            
-            Route::resource('/products', \App\Http\Controllers\Seller\ProductController::class)->names('seller.products');
-            
-            Route::resource('/transactions', \App\Http\Controllers\Seller\TransactionController::class)
-                ->names('seller.transactions')
-                ->only(['index', 'show', 'update']);
-
-            // 👇 PERBAIKAN: Print Label dipindah ke sini (aman)
-            Route::get('/transactions/{id}/print-label', [\App\Http\Controllers\Seller\TransactionController::class, 'printLabel'])
-                ->name('seller.transactions.print');
-            
-            Route::post('/products/generate-ai', [\App\Http\Controllers\Seller\ProductController::class, 'generateDescription'])->name('seller.products.generate-ai');
-        });
-    });
-
+    // Pengaturan Toko
+    Route::get('/settings', [MainStoreController::class, 'edit'])->name('admin.store.edit');
+    Route::post('/settings', [MainStoreController::class, 'update'])->name('admin.store.update');
 });
 
 // Profile Standard Breeze
