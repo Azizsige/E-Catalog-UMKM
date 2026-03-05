@@ -87,7 +87,7 @@ class ProductController extends Controller
             }
         }
 
-        return redirect()->route('seller.products.index')->with('message', 'Produk berhasil ditambahkan!');
+        return redirect()->route('admin.products.index')->with('message', 'Produk berhasil ditambahkan!');
     }
 
     // 3. Tampilkan Form Edit
@@ -174,7 +174,7 @@ class ProductController extends Controller
             }
         }
 
-        return redirect()->route('seller.products.index')
+        return redirect()->route('admin.products.index')
             ->with('message', 'Produk berhasil diperbarui!');
     }
 

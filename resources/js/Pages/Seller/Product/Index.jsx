@@ -35,7 +35,7 @@ export default function ProductIndex({ products }) {
 
     // Eksekusi Hapus
     const handleDelete = () => {
-        router.delete(route("seller.products.destroy", deleteId), {
+        router.delete(route("admin.products.destroy", deleteId), {
             onSuccess: () => setIsDeleteOpen(false),
         });
     };
@@ -53,7 +53,7 @@ export default function ProductIndex({ products }) {
                         Kelola katalog produk toko Anda.
                     </p>
                 </div>
-                <Link href={route("seller.products.create")}>
+                <Link href={route("admin.products.create")}>
                     <Button>
                         <PlusCircle className="mr-2 h-4 w-4" /> Tambah Produk
                     </Button>
@@ -116,8 +116,8 @@ export default function ProductIndex({ products }) {
                                         <div className="flex justify-end gap-2">
                                             <Link
                                                 href={route(
-                                                    "seller.products.edit",
-                                                    product.id
+                                                    "admin.products.edit",
+                                                    product.id,
                                                 )}
                                             >
                                                 <Button

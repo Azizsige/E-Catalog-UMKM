@@ -12,38 +12,28 @@ use App\Models\Product;
 class DashboardController extends Controller
 {
     public function index()
-{
-    $user = Auth::user();
-    $store = $user->store;
-
-    if (!$store) {
-        return redirect()->route('index');
-    }
-
-    $stats = [
-        'total_revenue' => Transaction::where('store_id', $store->id)
-            ->where('payment_status', 'paid')
-            ->sum('total_price'),
+    {
+        // KARENA INI APLIKASI 1 UMKM:
+        // Kita hitung semua data secara global, gak peduli user ini punya "store" atau nggak.
+        
+        $stats = [
+            'total_revenue' => Transaction::where('payment_status', 'paid')->sum('total_price'),
             
-        'total_orders' => Transaction::where('store_id', $store->id)->count(),
-        
-        'pending_orders' => Transaction::where('store_id', $store->id)
-            ->where('order_status', 'pending')
-            ->count(),
-        
-        // ✅ SEKARANG SUDAH SESUAI DENGAN KOLOM DATABASE KAMU
-        'total_products' => Product::where('user_id', $user->id)->count(), 
-    ];
+            'total_orders' => Transaction::count(),
+            
+            'pending_orders' => Transaction::where('order_status', 'pending')->count(),
+            
+            'total_products' => Product::count(), 
+        ];
 
-    $recent_orders = Transaction::with('user')
-        ->where('store_id', $store->id)
-        ->latest()
-        ->limit(5)
-        ->get();
+        $recent_orders = Transaction::with('user')
+            ->latest()
+            ->limit(5)
+            ->get();
 
-    return Inertia::render('Seller/Dashboard', [
-        'stats' => $stats,
-        'recent_orders' => $recent_orders
-    ]);
-}
+        return Inertia::render('Seller/Dashboard', [
+            'stats' => $stats,
+            'recent_orders' => $recent_orders
+        ]);
+    }
 }

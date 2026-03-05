@@ -14,14 +14,12 @@ class ProductController extends Controller
     // --- METHOD HOMEPAGE ---
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'store'])
-            ->where('is_active', true)
-            // 👇 PERBAIKAN DISINI: Tambahkan 'stores.' sebelum 'status'
-            ->whereHas('store', function($q) {
-                $q->where('stores.status', 'approved'); 
-            });
+        // 1. Ambil Produk, cukup filter yang aktif aja.
+        // Hapus "whereHas('store', ... status approved)" karena ini aplikasi 1 toko
+        $query = Product::with(['category'])
+            ->where('is_active', true);
 
-        // 1. Logic Search
+        // 2. Logic Search (Tetap)
         if ($request->has('search') && $request->search != '') {
             $keyword = $request->search;
             $query->where(function($q) use ($keyword) {
@@ -30,7 +28,7 @@ class ProductController extends Controller
             });
         }
 
-        // 2. Logic Filter Kategori
+        // 3. Logic Filter Kategori (Tetap)
         if ($request->has('category') && $request->category != '') {
             $query->whereHas('category', function($q) use ($request) {
                 $q->where('slug', $request->category);
@@ -40,10 +38,14 @@ class ProductController extends Controller
         $products = $query->latest()->get();
         $categories = Category::all();
 
+        $store = \App\Models\Store::latest('updated_at')->first();
+
         return Inertia::render('Welcome', [
             'products' => $products,
             'categories' => $categories,
             'filters' => $request->only(['search', 'category']),
+            'storeInfo' => $store,
+            // canLogin & canRegister kita biarkan aja jaga-jaga kalau dibutuhkan di frontend
             'canLogin' => Route::has('login'),
             'canRegister' => Route::has('register'),
         ]);
@@ -52,22 +54,16 @@ class ProductController extends Controller
     // --- METHOD DETAIL PRODUK ---
     public function show($slug)
     {
-        $product = Product::with(['category', 'store', 'images'])
+        // 1. Ambil detail produk
+        $product = Product::with(['category', 'images'])
             ->where('slug', $slug)
             ->where('is_active', true)
-            // 👇 PERBAIKAN DISINI JUGA
-            ->whereHas('store', function($q) {
-                $q->where('stores.status', 'approved');
-            })
             ->firstOrFail();
 
+        // 2. Ambil produk serupa (dari kategori yang sama)
         $relatedProducts = Product::where('category_id', $product->category_id)
             ->where('id', '!=', $product->id)
             ->where('is_active', true)
-            // 👇 PERBAIKAN DISINI JUGA
-            ->whereHas('store', function($q) {
-                $q->where('stores.status', 'approved');
-            })
             ->limit(4)
             ->inRandomOrder()
             ->get();

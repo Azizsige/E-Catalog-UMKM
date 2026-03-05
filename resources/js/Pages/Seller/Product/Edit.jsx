@@ -45,8 +45,8 @@ export default function ProductEdit({ product, categories }) {
     const mainImagePreview = data.image
         ? URL.createObjectURL(data.image)
         : product.image
-        ? `/storage/${product.image}`
-        : null;
+          ? `/storage/${product.image}`
+          : null;
 
     // --- 3. LOGIC AI ---
     const handleGenerateAI = async () => {
@@ -61,7 +61,7 @@ export default function ProductEdit({ product, categories }) {
                 {
                     name: data.name,
                     keywords: "Enak, Murah, Terlaris",
-                }
+                },
             );
             if (response.data.success) {
                 setData("description", response.data.description);
@@ -102,7 +102,7 @@ export default function ProductEdit({ product, categories }) {
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const files = Array.from(e.dataTransfer.files);
             const imageFiles = files.filter((file) =>
-                file.type.startsWith("image/")
+                file.type.startsWith("image/"),
             );
             if (imageFiles.length > 0)
                 setData("extra_images", [...data.extra_images, ...imageFiles]);
@@ -133,7 +133,7 @@ export default function ProductEdit({ product, categories }) {
     const handleSubmit = (e) => {
         e.preventDefault();
         // Post ke route update (method spoofing PUT sudah ada di useForm)
-        post(route("seller.products.update", product.id));
+        post(route("admin.products.update", product.id));
     };
 
     return (
@@ -143,7 +143,7 @@ export default function ProductEdit({ product, categories }) {
             <div className="max-w-3xl mx-auto pb-10">
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-6">
-                    <Link href={route("seller.products.index")}>
+                    <Link href={route("admin.products.index")}>
                         <Button variant="outline" size="icon">
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
@@ -194,7 +194,7 @@ export default function ProductEdit({ product, categories }) {
                                         onChange={(e) =>
                                             setData(
                                                 "category_id",
-                                                e.target.value
+                                                e.target.value,
                                             )
                                         }
                                     >
@@ -336,7 +336,7 @@ export default function ProductEdit({ product, categories }) {
                                             (img) =>
                                                 // Jangan tampilkan kalau sudah ditandai hapus
                                                 !data.deleted_images.includes(
-                                                    img.id
+                                                    img.id,
                                                 ) && (
                                                     <div
                                                         key={img.id}
@@ -354,7 +354,7 @@ export default function ProductEdit({ product, categories }) {
                                                                 type="button"
                                                                 onClick={() =>
                                                                     removeExistingGalleryImage(
-                                                                        img.id
+                                                                        img.id,
                                                                     )
                                                                 }
                                                                 className="bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
@@ -364,7 +364,7 @@ export default function ProductEdit({ product, categories }) {
                                                             </button>
                                                         </div>
                                                     </div>
-                                                )
+                                                ),
                                         )}
 
                                     {/* B. Foto BARU (New Upload) */}
@@ -385,7 +385,7 @@ export default function ProductEdit({ product, categories }) {
                                                     type="button"
                                                     onClick={() =>
                                                         removeNewGalleryImage(
-                                                            index
+                                                            index,
                                                         )
                                                     }
                                                     className="bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
