@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import SellerLayout from "@/Layouts/SellerLayout";
 import { Head, useForm, router } from "@inertiajs/react";
 import { Button } from "@/Components/ui/button";
@@ -25,20 +25,42 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-} from "@/Components/ui/alert-dialog"; // <--- Import Alert Dialog
+} from "@/Components/ui/alert-dialog";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
-import { PlusCircle, Pencil, Trash2 } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, Search, Tags } from "lucide-react"; // Import Icon Search & Tags
 
-export default function CategoryIndex({ categories }) {
+export default function CategoryIndex({ categories, filters }) {
+    // --- STATE PENCARIAN ---
+    const [search, setSearch] = useState(filters?.search || "");
+    const isFirstRender = useRef(true);
+
+    // --- AUTO-SEARCH DEBOUNCE ---
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            router.get(
+                route("admin.categories.index"),
+                { search },
+                { preserveState: true, preserveScroll: true, replace: true },
+            );
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [search]);
+
     // --- STATE CRUD MODAL ---
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [currentId, setCurrentId] = useState(null);
 
     // --- STATE DELETE ALERT ---
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false); // Untuk buka/tutup alert delete
-    const [deleteId, setDeleteId] = useState(null); // Simpan ID yang mau dihapus
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [deleteId, setDeleteId] = useState(null);
 
     const { data, setData, post, processing, errors, reset, clearErrors } =
         useForm({
@@ -47,11 +69,9 @@ export default function CategoryIndex({ categories }) {
             _method: "POST",
         });
 
-    // --- LOGIKA REVISI 1: RESET FORM SAAT DIALOG DITUTUP ---
     const handleDialogChange = (open) => {
         setIsOpen(open);
         if (!open) {
-            // Kalau dialog menutup (false), kita bersihkan semuanya
             reset();
             clearErrors();
             setIsEditing(false);
@@ -60,8 +80,6 @@ export default function CategoryIndex({ categories }) {
     };
 
     const openAddModal = () => {
-        // Tidak perlu reset disini lagi, karena sudah di handleDialogChange
-        // Cukup set mode nya saja
         setData({ name: "", icon: null, _method: "POST" });
         setIsEditing(false);
         setIsOpen(true);
@@ -83,24 +101,20 @@ export default function CategoryIndex({ categories }) {
 
         if (isEditing) {
             post(route("admin.categories.update", currentId), {
-                onSuccess: () => setIsOpen(false), // handleDialogChange akan otomatis reset
+                onSuccess: () => setIsOpen(false),
             });
         } else {
             post(route("admin.categories.store"), {
-                onSuccess: () => setIsOpen(false), // handleDialogChange akan otomatis reset
+                onSuccess: () => setIsOpen(false),
             });
         }
     };
 
-    // --- LOGIKA REVISI 2: CUSTOM DELETE CONFIRMATION ---
-
-    // 1. Klik tombol sampah -> Buka Alert
     const confirmDelete = (id) => {
         setDeleteId(id);
         setIsDeleteOpen(true);
     };
 
-    // 2. Klik "Lanjutkan" di Alert -> Hapus data
     const executeDelete = () => {
         router.delete(route("admin.categories.destroy", deleteId), {
             onSuccess: () => {
@@ -114,6 +128,7 @@ export default function CategoryIndex({ categories }) {
         <SellerLayout>
             <Head title="Manajemen Kategori" />
 
+            {/* HEADER ASLI LU */}
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">
@@ -128,6 +143,23 @@ export default function CategoryIndex({ categories }) {
                     <PlusCircle className="w-4 h-4 mr-2" />
                     Tambah Kategori
                 </Button>
+            </div>
+
+            {/* --- AREA FILTER PENCARIAN --- */}
+            <div className="flex flex-col sm:flex-row mb-4 bg-white p-4 rounded-md border items-center justify-start z-10 relative">
+                {/* Search Bar */}
+                <div className="relative w-full sm:w-64">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <Search className="w-4 h-4 text-gray-400" />
+                    </div>
+                    <Input
+                        type="text"
+                        placeholder="Cari nama kategori..."
+                        className="pl-10"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
             </div>
 
             {/* MODAL FORM (ADD / EDIT) */}
@@ -194,7 +226,7 @@ export default function CategoryIndex({ categories }) {
                 </DialogContent>
             </Dialog>
 
-            {/* ALERT DIALOG KONFIRMASI DELETE (Revisi 2) */}
+            {/* ALERT DIALOG KONFIRMASI DELETE */}
             <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -216,10 +248,10 @@ export default function CategoryIndex({ categories }) {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* TABEL */}
-            <div className="bg-white border rounded-md">
+            {/* TABEL KATEGORI */}
+            <div className="bg-white border rounded-md mb-10 overflow-hidden">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-gray-50">
                         <TableRow>
                             <TableHead className="w-[100px]">No</TableHead>
                             <TableHead>Icon</TableHead>
@@ -229,52 +261,68 @@ export default function CategoryIndex({ categories }) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {categories.map((category, index) => (
-                            <TableRow key={category.id}>
-                                <TableCell className="font-medium">
-                                    {index + 1}
-                                </TableCell>
-                                <TableCell>
-                                    {category.icon ? (
-                                        <img
-                                            src={`/storage/${category.icon}`}
-                                            alt=""
-                                            className="object-cover w-10 h-10 rounded-md"
-                                        />
-                                    ) : (
-                                        <div className="flex items-center justify-center w-10 h-10 text-xs bg-gray-100 rounded-lg">
-                                            IMG
-                                        </div>
-                                    )}
-                                </TableCell>
-                                <TableCell>{category.name}</TableCell>
-                                <TableCell>{category.slug}</TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() =>
-                                                openEditModal(category)
-                                            }
-                                        >
-                                            <Pencil className="w-4 h-4" />
-                                        </Button>
+                        {categories.length > 0 ? (
+                            categories.map((category, index) => (
+                                <TableRow key={category.id}>
+                                    <TableCell className="font-medium">
+                                        {index + 1}
+                                    </TableCell>
+                                    <TableCell>
+                                        {category.icon ? (
+                                            <img
+                                                src={`/storage/${category.icon}`}
+                                                alt={category.name}
+                                                className="object-cover w-10 h-10 rounded-md border"
+                                            />
+                                        ) : (
+                                            <div className="flex items-center justify-center w-10 h-10 text-gray-400 bg-gray-100 rounded-md">
+                                                <Tags className="w-5 h-5" />
+                                            </div>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="font-semibold text-gray-900">
+                                        {category.name}
+                                    </TableCell>
+                                    <TableCell className="text-gray-500">
+                                        {category.slug}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() =>
+                                                    openEditModal(category)
+                                                }
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </Button>
 
-                                        {/* BUTTON DELETE MENGARAH KE FUNGSI BARU */}
-                                        <Button
-                                            variant="destructive"
-                                            size="icon"
-                                            onClick={() =>
-                                                confirmDelete(category.id)
-                                            }
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    </div>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() =>
+                                                    confirmDelete(category.id)
+                                                }
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={5}
+                                    className="h-48 text-center text-muted-foreground"
+                                >
+                                    {search
+                                        ? "Kategori tidak ditemukan. Coba kata kunci lain."
+                                        : "Belum ada kategori. Klik Tambah Kategori untuk memulai."}
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        )}
                     </TableBody>
                 </Table>
             </div>

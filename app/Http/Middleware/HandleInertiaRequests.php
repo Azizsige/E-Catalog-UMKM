@@ -51,7 +51,28 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
                 'error'   => fn () => $request->session()->get('error'),
-            ]
+            ],
+            'notifications' => function () use ($request) {
+                if ($request->user()) {
+                    // Ambil 5 notifikasi terbaru aja biar gak berat
+                    $notifs = $request->user()->notifications()->take(5)->get();
+                    
+                    return [
+                        'data' => $notifs->map(function ($notif) {
+                            return [
+                                'id' => $notif->id,
+                                'title' => $notif->data['title'] ?? 'Info',
+                                'desc' => $notif->data['message'] ?? '',
+                                'icon_type' => $notif->data['icon_type'] ?? 'info', // 'order', 'stock', 'payment'
+                                'time' => $notif->created_at->diffForHumans(),
+                                'unread' => is_null($notif->read_at),
+                            ];
+                        }),
+                        'unread_count' => $request->user()->unreadNotifications()->count(),
+                    ];
+                }
+                return null;
+            },
         ];
     }
 }

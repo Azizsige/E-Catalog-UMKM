@@ -11,12 +11,21 @@ use Illuminate\Support\Facades\Storage; // <--- PENTING: Untuk upload gambar
 
 class CategoryController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $categories = Category::latest()->get();
+        $query = Category::latest();
+
+        // Tambahkan fitur Search
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        // Tetap pakai get() karena data kategori biasanya tidak ribuan
+        $categories = $query->get();
 
         return Inertia::render('Admin/Category/Index', [
-            'categories' => $categories
+            'categories' => $categories,
+            'filters' => $request->only(['search']), // Lempar balik keyword pencarian ke React
         ]);
     }
 

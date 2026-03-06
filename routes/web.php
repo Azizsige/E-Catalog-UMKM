@@ -9,6 +9,7 @@ use App\Http\Controllers\Seller\ProductController as MainProductController;
 use App\Http\Controllers\Seller\StoreController as MainStoreController;
 use App\Http\Controllers\Seller\TransactionController as MainTransactionController;
 use App\Http\Controllers\Admin\CategoryController; 
+use App\Http\Controllers\Admin\NotificationController; // PENTING: Tambahkan ini untuk notifikasi admin
 // Controller Publik (Guest)
 use App\Http\Controllers\Public\ProductController as PublicProductController;
 use App\Http\Controllers\Public\CartController;
@@ -58,6 +59,10 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     // Pengaturan Toko
     Route::get('/settings', [MainStoreController::class, 'edit'])->name('admin.store.edit');
     Route::post('/settings', [MainStoreController::class, 'update'])->name('admin.store.update');
+
+    Route::get('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('admin.notifications.read');
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('admin.notifications.index');
+Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('admin.notifications.readAll');
 });
 
 // Profile Standard Breeze

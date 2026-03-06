@@ -1,184 +1,141 @@
 import { Head } from "@inertiajs/react";
 import { useEffect } from "react";
-import { Printer, ShoppingBag, MapPin, Store, Box } from "lucide-react";
+import { Package, Scissors } from "lucide-react";
 
-export default function PrintLabel({ transaction, store }) {
-    let shippingInfo = {};
-    try {
-        shippingInfo = JSON.parse(
-            transaction.shipping_address_snapshot || "{}"
-        );
-    } catch (e) {
-        console.error("Error parsing address", e);
-    }
+export default function Print({ transaction, store }) {
+    // Jalankan perintah print browser secara otomatis saat halaman ini terbuka
+    useEffect(() => {
+        // Kasih jeda dikit 0.5 detik biar icon/font selesai render dulu baru nge-print
+        const timer = setTimeout(() => {
+            window.print();
+        }, 500);
+        return () => clearTimeout(timer);
+    }, []);
 
-    // Helper Tanggal Indonesia
-    const tanggalIndo = new Date(transaction.created_at).toLocaleDateString(
-        "id-ID",
-        {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-        }
-    );
+    // Helper format JSON Address
+    const address = transaction.shipping_address_snapshot
+        ? JSON.parse(transaction.shipping_address_snapshot)
+        : null;
 
     return (
-        <div className="flex flex-col items-center justify-start min-h-screen p-8 font-sans bg-gray-100">
-            <Head title={`Label - ${transaction.invoice_code}`} />
+        <div className="min-h-screen bg-gray-200 py-8 print:bg-white print:py-0 flex justify-center">
+            <Head title={`Cetak Label - ${transaction.invoice_code}`} />
 
-            {/* --- TOMBOL PRINT --- */}
-            <div className="flex flex-col items-center gap-2 mb-6 print:hidden">
-                <p className="text-sm text-gray-600">
-                    Tips: Aktifkan <b>"Background graphics"</b> di setting print
-                    agar blok hitam muncul.
-                </p>
-                <button
-                    onClick={() => window.print()}
-                    className="flex items-center gap-2 px-6 py-3 font-bold text-white transition-all bg-gray-900 rounded-full shadow-lg hover:bg-black hover:scale-105"
-                >
-                    <Printer className="w-5 h-5" />
-                    Cetak Label
-                </button>
-            </div>
-
-            {/* --- KERTAS LABEL (A6) --- */}
-            <div
-                id="printable-area"
-                className="bg-white w-[105mm] min-h-[148mm] shadow-2xl print:shadow-none border border-gray-300 print:border-2 print:border-black overflow-hidden relative text-black"
-            >
-                {/* 1. HEADER HITAM */}
-                <div className="flex items-start justify-between p-4 text-white bg-black print:bg-black print:text-white">
+            {/* Kertas Print - Ukuran diset mirip kertas A6 / Printer Thermal */}
+            <div className="w-full max-w-md bg-white p-6 shadow-lg print:shadow-none print:max-w-none border-t-[12px] border-black">
+                {/* Header Invoice */}
+                <div className="flex justify-between items-start border-b-2 border-dashed border-gray-300 pb-4 mb-4">
                     <div>
-                        {/* GANTI WORDING DISINI BIAR KEREN */}
-                        <h1 className="mb-1 text-xl font-black leading-none tracking-widest uppercase">
-                            STANDARD DELIVERY
+                        <h1 className="font-extrabold text-2xl tracking-tighter uppercase">
+                            LABEL PENGIRIMAN
                         </h1>
-                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase opacity-80">
-                            <Box className="w-3 h-3" />
-                            <span>
-                                {transaction.courier_name || "Regular Service"}
-                            </span>
-                        </div>
+                        <p className="text-sm font-bold mt-1">
+                            {transaction.invoice_code}
+                        </p>
                     </div>
                     <div className="text-right">
-                        <p className="text-xs font-bold opacity-60">
-                            No. Invoice
-                        </p>
-                        <p className="font-mono text-sm font-bold tracking-wider">
-                            #{transaction.invoice_code}
+                        <Package className="w-10 h-10 ml-auto" />
+                        <p className="text-xs font-semibold mt-1">
+                            {new Date(
+                                transaction.created_at,
+                            ).toLocaleDateString("id-ID", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                            })}
                         </p>
                     </div>
                 </div>
 
-                {/* 2. TUJUAN (PENERIMA) */}
-                <div className="p-5 border-b-2 border-gray-400 border-dashed">
-                    <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-wider">
-                        <MapPin className="w-3 h-3" /> Penerima
+                {/* Info Pengirim & Penerima */}
+                <div className="grid grid-cols-2 gap-6 border-b-2 border-black pb-4 mb-4">
+                    {/* PENGIRIM */}
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">
+                            Dari (Pengirim):
+                        </p>
+                        <p className="font-bold text-sm uppercase">
+                            {store?.name || "Juragan Lapak"}
+                        </p>
+                        <p className="text-xs mt-1">{store?.phone || "-"}</p>
+                        <p className="text-xs line-clamp-3 leading-relaxed mt-1">
+                            {store?.address || "Alamat toko belum diset."}
+                        </p>
                     </div>
 
-                    {/* Nama Besar */}
-                    <h2 className="mb-1 text-xl font-black leading-tight uppercase">
-                        {shippingInfo.recipient_name || transaction.user.name}
-                    </h2>
+                    {/* PENERIMA */}
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">
+                            Kepada (Penerima):
+                        </p>
+                        <p className="font-bold text-sm uppercase">
+                            {address?.recipient_name || transaction.user?.name}
+                        </p>
+                        <p className="text-xs font-bold mt-1">
+                            {address?.phone || "-"}
+                        </p>
+                        <p className="text-xs line-clamp-4 leading-relaxed mt-1">
+                            {address?.full_address || "Alamat tidak ditemukan."}
+                        </p>
+                    </div>
+                </div>
 
-                    {/* No HP */}
-                    <p className="mb-3 font-mono font-bold text-md">
-                        {shippingInfo.phone_number || transaction.user.phone}
+                {/* Daftar Barang (Biar tukang packing tahu isi paketnya) */}
+                <div className="mb-6">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">
+                        Isi Paket:
                     </p>
-
-                    {/* Alamat */}
-                    <div className="pl-3 text-sm leading-snug border-l-4 border-gray-300">
-                        <p>{shippingInfo.address_line}</p>
-                        <p className="mt-1 font-bold">
-                            {shippingInfo.city}, {shippingInfo.postal_code}
-                        </p>
-                    </div>
-                </div>
-
-                {/* 3. PENGIRIM */}
-                <div className="p-3 px-5 border-b-2 border-gray-300 bg-gray-50 print:bg-gray-100">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase mb-1">
-                                <Store className="w-3 h-3" /> Pengirim
-                            </div>
-                            <p className="text-sm font-bold uppercase">
-                                {store.name}
-                            </p>
-                            <p className="font-mono text-xs">
-                                {store.phone_number}
-                            </p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-[10px] text-gray-400">
-                                Tanggal Order
-                            </p>
-                            <p className="text-xs font-bold">{tanggalIndo}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 4. TABEL PRODUK (Dibuat Rapi) */}
-                <div className="p-5">
-                    <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase mb-3 tracking-wider">
-                        <ShoppingBag className="w-3 h-3" /> Rincian Isi Paket
-                    </div>
-
-                    <table className="w-full text-xs text-left border-collapse">
-                        <thead>
-                            <tr className="border-b-2 border-gray-800">
-                                <th className="py-2 font-bold uppercase tracking-wide w-[70%]">
-                                    Produk
-                                </th>
-                                <th className="py-2 font-bold uppercase tracking-wide text-right w-[30%]">
+                    <table className="w-full text-xs">
+                        <thead className="border-b border-gray-300 text-left">
+                            <tr>
+                                <th className="pb-2 font-bold uppercase w-12">
                                     Qty
+                                </th>
+                                <th className="pb-2 font-bold uppercase">
+                                    Nama Barang
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {transaction.details.map((item, index) => (
-                                <tr key={index}>
-                                    <td className="py-2 pr-2 leading-relaxed align-top">
-                                        {item.product?.name || "Produk dihapus"}
+                        <tbody className="divide-y divide-gray-100">
+                            {transaction.details?.map((item) => (
+                                <tr key={item.id}>
+                                    <td className="py-2 font-extrabold text-sm">
+                                        {item.quantity}x
                                     </td>
-                                    <td className="py-2 text-lg font-bold text-right align-top">
-                                        {item.qty}
+                                    <td className="py-2 font-medium">
+                                        {item.product?.name || "Produk Dihapus"}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-
-                    {/* Footer Pesan */}
-                    <div className="mt-6 border-2 border-black border-dashed p-3 rounded-lg text-[10px] font-bold text-center uppercase tracking-wide">
-                        "Wajib Video Unboxing Saat Buka Paket"
-                    </div>
                 </div>
 
-                {/* WATERMARK BAWAH */}
-                <div className="absolute bottom-0 w-full py-1 text-center bg-white border-t border-gray-300">
-                    <p className="text-[8px] text-gray-400 font-mono">
-                        Printed by Juragan Lapak System
+                {/* Footer Keterangan */}
+                <div className="border-t-2 border-dashed border-gray-300 pt-4 flex items-center justify-between text-[10px] text-gray-500">
+                    <div className="flex items-center">
+                        <Scissors className="w-3 h-3 mr-2 transform -rotate-90" />
+                        Potong di sini
+                    </div>
+                    <p className="font-bold uppercase tracking-wider">
+                        {transaction.payment_method === "midtrans"
+                            ? "SUDAH DIBAYAR"
+                            : "MANUAL TRANSFER"}
                     </p>
                 </div>
             </div>
 
-            {/* CSS STYLE PRINT */}
-            <style>{`
+            {/* Kustomisasi CSS khusus untuk nge-print */}
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: `
                 @media print {
-                    body * { visibility: hidden; }
-                    #printable-area, #printable-area * { visibility: visible; }
-                    #printable-area {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        margin: 0;
-                    }
-                    @page { size: A6; margin: 0; }
-                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    @page { margin: 0; size: A6 portrait; }
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 }
-            `}</style>
+            `,
+                }}
+            />
         </div>
     );
 }
