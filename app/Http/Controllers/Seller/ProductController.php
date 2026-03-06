@@ -14,15 +14,32 @@ use Gemini\Laravel\Facades\Gemini;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::with('category')
-            ->where('user_id', Auth::id())
-            ->latest()
-            ->get();
+        // 1. Siapkan query dasar
+        $query = Product::with('category')->where('user_id', Auth::id())->latest();
+
+        // 2. Logic Filter Pencarian Nama
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        // 3. Logic Filter Kategori Dropdown
+        if ($request->filled('category_id') && $request->category_id !== 'all') {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // 4. PENTING: Gunakan paginate(10) bukan get()
+        // Ini yang bikin products.data.map di React bisa jalan
+        $products = $query->paginate(10)->withQueryString();
+        
+        // Ambil data kategori untuk isi dropdown filter
+        $categories = Category::orderBy('name')->get();
 
         return Inertia::render('Seller/Product/Index', [
-            'products' => $products
+            'products' => $products,
+            'categories' => $categories,
+            'filters' => $request->only(['search', 'category_id']),
         ]);
     }
 

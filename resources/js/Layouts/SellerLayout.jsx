@@ -23,19 +23,19 @@ import {
     UserCircle,
     ExternalLink,
     Bell,
-    ShoppingBag, // Icon tambahan untuk notif
-    AlertTriangle, // Icon tambahan untuk notif
-    CheckCircle2, // Icon tambahan untuk notif
+    ShoppingBag,
+    AlertTriangle,
+    CheckCircle2,
+    Info,
 } from "lucide-react";
 import { Toaster } from "@/Components/ui/sonner";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export default function SellerLayout({ children }) {
-    const { auth, flash } = usePage().props;
+    const { auth, flash, notifications } = usePage().props;
     const user = auth.user;
 
-    // ✅ FIX 1: Ambil state awal dari localStorage biar nggak reset pas pindah halaman
     const [isCollapsed, setIsCollapsed] = useState(() => {
         if (typeof window !== "undefined") {
             const saved = localStorage.getItem("sidebarCollapsed");
@@ -44,7 +44,6 @@ export default function SellerLayout({ children }) {
         return false;
     });
 
-    // ✅ FIX 2: Simpan ke localStorage tiap kali tombol collapse diklik
     useEffect(() => {
         localStorage.setItem("sidebarCollapsed", isCollapsed);
     }, [isCollapsed]);
@@ -58,38 +57,82 @@ export default function SellerLayout({ children }) {
         }
     }, [flash]);
 
-    // --- DATA DUMMY NOTIFIKASI ---
-    const dummyNotifications = [
-        {
-            id: 1,
-            title: "Pesanan Baru #INV-001",
-            desc: "Nasi Goreng Spesial (2x) menunggu konfirmasi.",
-            time: "2 menit lalu",
-            icon: ShoppingBag,
-            color: "text-blue-500 bg-blue-50",
-            unread: true,
-        },
-        {
-            id: 2,
-            title: "Stok Menipis!",
-            desc: "Stok 'Ayam Bakar Madu' sisa 2 porsi.",
-            time: "1 jam lalu",
-            icon: AlertTriangle,
-            color: "text-amber-500 bg-amber-50",
-            unread: true,
-        },
-        {
-            id: 3,
-            title: "Pembayaran Berhasil",
-            desc: "Pesanan #INV-000 atas nama Budi telah dibayar.",
-            time: "3 jam lalu",
-            icon: CheckCircle2,
-            color: "text-emerald-500 bg-emerald-50",
-            unread: false,
-        },
-    ];
+    // --- LOGIC BACA NOTIFIKASI DARI DATABASE ---
+    // --- LOGIC BACA NOTIFIKASI DARI DATABASE & REAL-TIME ---
+    const [notifData, setNotifData] = useState(notifications?.data || []);
+    const [unreadCount, setUnreadCount] = useState(
+        notifications?.unread_count || 0,
+    );
 
-    const unreadCount = dummyNotifications.filter((n) => n.unread).length;
+    // Sinkronisasi kalau pindah halaman via Inertia
+    useEffect(() => {
+        setNotifData(notifications?.data || []);
+        setUnreadCount(notifications?.unread_count || 0);
+    }, [notifications]);
+
+    // SIHIR PENANGKAP SINYAL (LARAVEL ECHO)
+    useEffect(() => {
+        // Pastikan Echo udah jalan dan user udah login
+        if (user && window.Echo) {
+            // Dengerin saluran pribadi milik Admin ini (User ID)
+            const channel = window.Echo.private(`App.Models.User.${user.id}`);
+
+            // Tangkap notifikasi yang masuk
+            channel.notification((notification) => {
+                console.log("NOTIF REAL-TIME MASUK:", notification);
+
+                // 1. Munculin Toast cantik dari pojok kanan atas!
+                toast(notification.title, {
+                    description: notification.message,
+                    duration: 5000,
+                    // Icon disesuaikan dgn warna dari helper
+                    className: getNotifStyle(notification.icon_type).color,
+                });
+
+                // 2. Otomatis nambahin Lonceng Merah (+1)
+                setUnreadCount((prev) => prev + 1);
+
+                // 3. Masukin data notif baru ke daftar teratas (dropdown)
+                // Kita format strukturnya biar mirip dari database
+                const newNotif = {
+                    id: notification.id,
+                    data: {
+                        title: notification.title,
+                        message: notification.message,
+                        icon_type: notification.icon_type,
+                        transaction_id: notification.transaction_id,
+                    },
+                    created_at: new Date().toISOString(),
+                    unread: true, // Kasih tanda titik merah
+                };
+                setNotifData((prev) => [newNotif, ...prev].slice(0, 10)); // Simpan 10 terbaru aja
+            });
+
+            // Bersihin saluran pas komponen ditutup
+            return () => {
+                window.Echo.leave(`App.Models.User.${user.id}`);
+            };
+        }
+    }, [user]);
+
+    const getNotifStyle = (type) => {
+        switch (type) {
+            case "order":
+                return { icon: ShoppingBag, color: "text-blue-500 bg-blue-50" };
+            case "stock":
+                return {
+                    icon: AlertTriangle,
+                    color: "text-amber-500 bg-amber-50",
+                };
+            case "payment":
+                return {
+                    icon: CheckCircle2,
+                    color: "text-emerald-500 bg-emerald-50",
+                };
+            default:
+                return { icon: Info, color: "text-gray-500 bg-gray-100" };
+        }
+    };
 
     const navItems = [
         {
@@ -133,7 +176,7 @@ export default function SellerLayout({ children }) {
                     isCollapsed ? "w-[6rem]" : "w-64",
                 )}
             >
-                <div className="flex items-center justify-between px-4 border-b h-14 bg-white">
+                <div className="flex items-center justify-between px-4 border-b h-14 bg-white mt-4">
                     <div className="flex items-center gap-2 overflow-hidden">
                         <Link href="/">
                             <Store className="w-6 h-6 text-orange-600 flex-shrink-0" />
@@ -146,7 +189,6 @@ export default function SellerLayout({ children }) {
                             </Link>
                         )}
                     </div>
-
                     <Button
                         variant="ghost"
                         size="icon"
@@ -196,8 +238,9 @@ export default function SellerLayout({ children }) {
                     isCollapsed ? "md:pl-20" : "md:pl-64",
                 )}
             >
-                {/* HEADER / TOPBAR */}
-                <header className="sticky top-0 z-30 flex items-center gap-4 px-4 border-b h-14 bg-background sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+                {/* --- HEADER / TOPBAR (UPDATED) --- */}
+                {/* Perubahan: Tambahin bg-white, shadow-sm, rounded-xl di layar gede */}
+                <header className="sticky top-0 z-30 flex items-center gap-4 px-4 h-14 bg-white border-b sm:static sm:h-16 sm:border sm:rounded-xl sm:shadow-sm sm:px-6 sm:mx-6 sm:mb-2">
                     <Sheet>
                         <SheetTrigger asChild>
                             <Button
@@ -213,7 +256,6 @@ export default function SellerLayout({ children }) {
                             side="left"
                             className="sm:max-w-xs text-gray-900"
                         >
-                            {/* ... (Konten Mobile Menu Tetap Sama) ... */}
                             <nav className="grid gap-6 text-lg font-medium mt-6">
                                 <div className="flex items-center gap-2 text-orange-600 mb-4">
                                     <Store className="w-6 h-6" />
@@ -240,20 +282,30 @@ export default function SellerLayout({ children }) {
                         </SheetContent>
                     </Sheet>
 
+                    {/* Judul Halaman (Opsional, cakep buat di header) */}
+                    <div className="hidden sm:flex items-center">
+                        <span className="text-sm font-semibold text-gray-500">
+                            Dashboard Panel
+                        </span>
+                    </div>
+
                     <div className="flex items-center gap-4 ml-auto">
-                        {/* ✅ DROPDOWN NOTIFIKASI */}
+                        {/* --- DROPDOWN NOTIFIKASI REAL DATA (UPDATED) --- */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="relative text-gray-500 hover:text-orange-600 rounded-full"
+                                    className="relative text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-full"
                                 >
                                     <Bell className="w-5 h-5" />
+
+                                    {/* Perubahan: Ganti Titik Kedip jadi Angka Merah */}
                                     {unreadCount > 0 && (
-                                        <span className="absolute top-1 right-1.5 flex h-2.5 w-2.5">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 border-2 border-white"></span>
+                                        <span className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white border-2 border-white">
+                                            {unreadCount > 99
+                                                ? "99+"
+                                                : unreadCount}
                                         </span>
                                     )}
                                 </Button>
@@ -269,47 +321,77 @@ export default function SellerLayout({ children }) {
                                         </span>
                                     )}
                                 </div>
+
                                 <div className="max-h-80 overflow-y-auto">
-                                    {dummyNotifications.map((notif) => (
-                                        <DropdownMenuItem
-                                            key={notif.id}
-                                            className="cursor-pointer px-4 py-3 focus:bg-gray-50 flex items-start gap-3"
-                                        >
-                                            <div
-                                                className={cn(
-                                                    "p-2 rounded-full flex-shrink-0 mt-0.5",
-                                                    notif.color,
-                                                )}
-                                            >
-                                                <notif.icon className="w-4 h-4" />
-                                            </div>
-                                            <div className="flex flex-col gap-1">
-                                                <p
-                                                    className={cn(
-                                                        "text-sm font-medium",
-                                                        notif.unread
-                                                            ? "text-gray-900"
-                                                            : "text-gray-600",
-                                                    )}
+                                    {notifData.length > 0 ? (
+                                        notifData.map((notif) => {
+                                            const NotifIcon = getNotifStyle(
+                                                notif.icon_type,
+                                            ).icon;
+                                            return (
+                                                <DropdownMenuItem
+                                                    key={notif.id}
+                                                    className="cursor-pointer px-4 py-3 focus:bg-gray-50 flex items-start gap-3 p-0"
+                                                    asChild
                                                 >
-                                                    {notif.title}
-                                                </p>
-                                                <p className="text-xs text-gray-500 line-clamp-2">
-                                                    {notif.desc}
-                                                </p>
-                                                <p className="text-[10px] text-gray-400 font-medium mt-1">
-                                                    {notif.time}
-                                                </p>
-                                            </div>
-                                            {notif.unread && (
-                                                <div className="w-2 h-2 bg-orange-500 rounded-full ml-auto mt-1.5 flex-shrink-0"></div>
-                                            )}
-                                        </DropdownMenuItem>
-                                    ))}
+                                                    <Link
+                                                        href={route(
+                                                            "admin.notifications.read",
+                                                            notif.id,
+                                                        )}
+                                                        className="w-full flex items-start gap-3 px-4 py-3"
+                                                    >
+                                                        <div
+                                                            className={cn(
+                                                                "p-2 rounded-full flex-shrink-0 mt-0.5",
+                                                                getNotifStyle(
+                                                                    notif.icon_type,
+                                                                ).color,
+                                                            )}
+                                                        >
+                                                            <NotifIcon className="w-4 h-4" />
+                                                        </div>
+                                                        <div className="flex flex-col gap-1 flex-1">
+                                                            <p
+                                                                className={cn(
+                                                                    "text-sm font-medium",
+                                                                    notif.unread
+                                                                        ? "text-gray-900"
+                                                                        : "text-gray-600",
+                                                                )}
+                                                            >
+                                                                {
+                                                                    notif.data
+                                                                        ?.title
+                                                                }
+                                                            </p>
+                                                            <p className="text-xs text-gray-500 line-clamp-2">
+                                                                {
+                                                                    notif.data
+                                                                        ?.message
+                                                                }
+                                                            </p>
+                                                            <p className="text-[10px] text-gray-400 font-medium mt-1">
+                                                                {notif.time}
+                                                            </p>
+                                                        </div>
+                                                        {notif.unread && (
+                                                            <div className="w-2 h-2 bg-orange-500 rounded-full ml-auto mt-1.5 flex-shrink-0"></div>
+                                                        )}
+                                                    </Link>
+                                                </DropdownMenuItem>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="py-6 text-center text-sm text-gray-500">
+                                            Belum ada notifikasi.
+                                        </div>
+                                    )}
                                 </div>
+
                                 <DropdownMenuSeparator className="mb-0" />
                                 <Link
-                                    href="#"
+                                    href={route("admin.notifications.index")}
                                     className="block w-full text-center py-2.5 text-xs font-semibold text-orange-600 hover:bg-orange-50 transition-colors rounded-b-md"
                                 >
                                     Lihat Semua Notifikasi
@@ -317,9 +399,8 @@ export default function SellerLayout({ children }) {
                             </DropdownMenuContent>
                         </DropdownMenu>
 
-                        {/* USER PROFILE DROPDOWN (TETAP SAMA) */}
+                        {/* --- USER PROFILE DROPDOWN --- */}
                         <div className="flex items-center gap-2">
-                            {/* ... (Kodingan Profil User Sama Persis Kayak Sebelumnya) ... */}
                             <div className="hidden md:block text-right mr-2">
                                 <p className="text-xs font-bold text-gray-900">
                                     {user.name}
@@ -333,7 +414,7 @@ export default function SellerLayout({ children }) {
                                     <Button
                                         variant="secondary"
                                         size="icon"
-                                        className="rounded-full ring-2 ring-white shadow-sm"
+                                        className="rounded-full ring-2 ring-gray-100 hover:ring-orange-200 transition-all shadow-sm"
                                     >
                                         <Avatar>
                                             <AvatarImage
@@ -392,7 +473,8 @@ export default function SellerLayout({ children }) {
                     </div>
                 </header>
 
-                <main className="p-4 sm:px-6 sm:py-0">{children}</main>
+                {/* --- RENDER KONTEN HALAMAN --- */}
+                <main className="p-4 sm:px-6 sm:py-2">{children}</main>
             </div>
             <Toaster position="top-right" richColors />
         </div>

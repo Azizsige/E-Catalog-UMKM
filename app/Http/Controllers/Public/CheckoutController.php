@@ -8,10 +8,13 @@ use Inertia\Inertia;
 use App\Models\Transaction;
 use App\Models\TransactionDetail;
 use App\Models\Product;
+use App\Models\User; // <-- PENTING: Tambahin ini buat manggil Admin
+use App\Notifications\NewOrderNotification; // <-- PENTING: Tambahin class notifikasi kita
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Midtrans\Config;
 use Midtrans\Snap;
+use App\Notifications\LowStockNotification; // <-- PENTING: Tambahin ini buat notifikasi stok menipis
 
 class CheckoutController extends Controller
 {
@@ -28,6 +31,7 @@ class CheckoutController extends Controller
         ]);
     }
 
+    // 2. PROSES CHECKOUT (GUEST)
     // 2. PROSES CHECKOUT (GUEST)
     public function store(Request $request)
     {
@@ -62,15 +66,32 @@ class CheckoutController extends Controller
                 if (!$product || $product->stock < $item['qty']) {
                     throw new \Exception("Stok produk '{$product->name}' tidak mencukupi.");
                 }
-                $totalPrice += $product->price * $item['qty'];
                 
+                // =======================================================
+                // 🔥 FIX PERHITUNGAN HARGA 🔥
+                // Ambil harga murni dari database, hiraukan format Rupiah
+                $rawPrice = $product->getRawOriginal('price') ?? $product->price;
+                
+                // Bersihkan dari titik/koma/huruf, paksa jadi Integer murni
+                $cleanPrice = (int) preg_replace('/[^0-9]/', '', (string) $rawPrice);
+                $qty = (int) $item['qty'];
+                
+                // Hitung subtotal dan masukkan ke keranjang total
+                $subtotal = $cleanPrice * $qty;
+                $totalPrice += $subtotal;
+                // =======================================================
+
                 $processedItems[] = [
                     'product' => $product,
-                    'qty' => $item['qty']
+                    'qty' => $qty,
+                    'price' => $cleanPrice // Simpan harga bersihnya
                 ];
             }
             
             $shippingCost = 15000; 
+            
+            // Hitung Grand Total dari awal biar gak miss
+            $grossAmount = $totalPrice + $shippingCost;
 
             // Tentukan Metode Pembayaran berdasarkan settingan toko
             $paymentMethod = ($store->checkout_mode === 'midtrans') ? 'midtrans' : 'whatsapp';
@@ -79,7 +100,7 @@ class CheckoutController extends Controller
                 'user_id'       => null, 
                 'store_id'      => $store->id,
                 'invoice_code'  => 'INV/' . date('Ymd') . '/' . Str::upper(Str::random(5)),
-                'total_price'   => $totalPrice,
+                'total_price'   => $totalPrice, // Sekarang harganya pasti masuk!
                 'shipping_cost' => $shippingCost,
                 'shipping_address_snapshot' => $addressSnapshot,
                 'order_status'  => 'pending',
@@ -92,16 +113,30 @@ class CheckoutController extends Controller
                     'transaction_id' => $transaction->id,
                     'product_id'     => $data['product']->id,
                     'qty'            => $data['qty'],
-                    'price_at_transaction' => $data['product']->price
+                    'price_at_transaction' => $data['price'] // Pakai harga bersih
                 ]);
+                
+                // Kurangi stok
                 $data['product']->decrement('stock', $data['qty']);
+
+                // Cek stok menipis
+                if ($data['product']->stock <= 5) {
+                    $admin = User::find(1);
+                    if ($admin) {
+                        $admin->notify(new LowStockNotification($data['product']));
+                    }
+                }
             }
 
-            DB::commit();
+            DB::commit(); // <-- Data 100% aman tersimpan di sini
+
+            // Trigger Notifikasi Pesanan Baru
+            $admin = User::find(1);
+            if ($admin) {
+                $admin->notify(new NewOrderNotification($transaction));
+            }
 
             // --- CABANG LOGIC PEMBAYARAN ---
-
-            // JIKA TOKO PAKE MIDTRANS
             if ($paymentMethod === 'midtrans') {
                 Config::$serverKey = config('midtrans.server_key');
                 Config::$isProduction = config('midtrans.is_production');
@@ -111,11 +146,11 @@ class CheckoutController extends Controller
                 $midtransParams = [
                     'transaction_details' => [
                         'order_id' => $transaction->invoice_code . '-' . rand(100,999),
-                        'gross_amount' => $totalPrice + $shippingCost,
+                        'gross_amount' => $grossAmount, // <-- Kirim Grand Total ke Midtrans
                     ],
                     'customer_details' => [
                         'first_name' => $request->recipient_name,
-                        'email' => 'guest@' . strtolower(str_replace(' ', '', $store->name)) . '.com', // Email dummy krn guest
+                        'email' => 'guest@' . strtolower(str_replace(' ', '', $store->name)) . '.com', 
                         'phone' => $request->phone_number,
                     ],
                 ];
@@ -129,10 +164,7 @@ class CheckoutController extends Controller
                     'snap_token' => $snapToken,
                     'invoice_code' => $transaction->invoice_code
                 ]);
-            } 
-            // JIKA TOKO PAKE WHATSAPP
-            else {
-                // PENTING: Wajib return invoice_code biar React bisa ngarahin ke /order/INV-XXX
+            } else {
                 return response()->json([
                     'success' => true,
                     'is_midtrans' => false,

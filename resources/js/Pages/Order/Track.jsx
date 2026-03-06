@@ -66,41 +66,57 @@ export default function TrackOrder({
     };
 
     // --- 3. BADGE STATUS PESANAN ---
-    const getOrderStatusBadge = (status) => {
-        switch (status) {
-            case "pending":
-                return (
-                    <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold rounded-full text-amber-600 bg-amber-50">
-                        <Clock size={16} /> Menunggu
-                    </span>
-                );
-            case "processing":
+    // --- 3. BADGE STATUS PESANAN (UPDATE LOGIC) ---
+    const getOrderStatusBadge = (orderStatus, paymentStatus) => {
+        // Kalau udah diproses, dikirim, selesai, atau batal, langsung tampilin aja
+        if (orderStatus === "processing") {
+            return (
+                <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-blue-600 rounded-full bg-blue-50">
+                    <Package size={16} /> Diproses
+                </span>
+            );
+        }
+        if (orderStatus === "shipped") {
+            return (
+                <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-purple-600 rounded-full bg-purple-50">
+                    <Truck size={16} /> Dikirim
+                </span>
+            );
+        }
+        if (orderStatus === "completed") {
+            return (
+                <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-green-600 rounded-full bg-green-50">
+                    <CheckCircle2 size={16} /> Selesai
+                </span>
+            );
+        }
+        if (orderStatus === "cancelled") {
+            return (
+                <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-red-600 rounded-full bg-red-50">
+                    <XCircle size={16} /> Dibatalkan
+                </span>
+            );
+        }
+
+        // --- NAH INI LOGIKANYA KALAU MASIH PENDING ---
+        if (orderStatus === "pending") {
+            if (paymentStatus === "paid") {
+                // Uang udah masuk, nunggu admin klik proses
                 return (
                     <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-blue-600 rounded-full bg-blue-50">
-                        <Package size={16} /> Diproses
+                        <Clock size={16} /> Menunggu Diproses
                     </span>
                 );
-            case "shipped":
+            } else {
+                // Uang belum masuk
                 return (
-                    <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-purple-600 rounded-full bg-purple-50">
-                        <Truck size={16} /> Dikirim
+                    <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-amber-600 rounded-full bg-amber-50">
+                        <Clock size={16} /> Menunggu Pembayaran
                     </span>
                 );
-            case "completed":
-                return (
-                    <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-green-600 rounded-full bg-green-50">
-                        <CheckCircle2 size={16} /> Selesai
-                    </span>
-                );
-            case "cancelled":
-                return (
-                    <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-red-600 rounded-full bg-red-50">
-                        <XCircle size={16} /> Dibatalkan
-                    </span>
-                );
-            default:
-                return null;
+            }
         }
+        return null;
     };
 
     // --- 4. LANJUTKAN PEMBAYARAN (MIDTRANS) ---
@@ -196,7 +212,10 @@ export default function TrackOrder({
                             <p className="mb-1 text-sm font-medium text-gray-400">
                                 Status Pesanan
                             </p>
-                            {getOrderStatusBadge(transaction.order_status)}
+                            {getOrderStatusBadge(
+                                transaction.order_status,
+                                transaction.payment_status,
+                            )}
                         </div>
                         <div className="md:text-right">
                             <p className="mb-1 text-sm font-medium text-gray-400">
@@ -210,7 +229,8 @@ export default function TrackOrder({
 
                     <div className="p-6 md:p-8">
                         {/* ALERT MENUNGGU PEMBAYARAN MIDTRANS */}
-                        {transaction.payment_method === "midtrans" &&
+                        {transaction.order_status !== "cancelled" &&
+                            transaction.payment_method === "midtrans" &&
                             transaction.payment_status === "pending" && (
                                 <div className="flex flex-col items-center justify-between gap-4 p-5 mb-8 border border-orange-200 md:flex-row bg-orange-50 rounded-xl">
                                     <div>
@@ -246,7 +266,8 @@ export default function TrackOrder({
                             )}
 
                         {/* ALERT MENUNGGU PEMBAYARAN WHATSAPP (MANUAL) */}
-                        {transaction.payment_method === "whatsapp" &&
+                        {transaction.order_status !== "cancelled" &&
+                            transaction.payment_method === "whatsapp" &&
                             transaction.payment_status === "pending" && (
                                 <div className="flex flex-col items-center justify-between gap-6 p-6 mb-8 border border-blue-200 md:flex-row bg-blue-50 rounded-xl">
                                     <div className="flex-1 w-full">
@@ -341,7 +362,13 @@ Mohon tunggu bukti transfernya ya. Terima kasih! 🙏`;
                                     <span className="text-gray-500">
                                         Status Pembayaran:
                                     </span>
-                                    {transaction.payment_status === "paid" ? (
+                                    {transaction.order_status ===
+                                    "cancelled" ? (
+                                        <span className="px-2 py-1 font-bold text-red-600 rounded bg-red-50">
+                                            GAGAL / DIBATALKAN
+                                        </span>
+                                    ) : transaction.payment_status ===
+                                      "paid" ? (
                                         <span className="px-2 py-1 font-bold text-green-600 rounded bg-green-50">
                                             LUNAS
                                         </span>

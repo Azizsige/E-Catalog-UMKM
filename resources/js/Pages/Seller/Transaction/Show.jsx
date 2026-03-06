@@ -210,27 +210,38 @@ export default function TransactionShow({ transaction }) {
             minimumFractionDigits: 0,
         }).format(Number(val) || 0);
 
-    const getStatusBadge = (status) => {
+    const getStatusBadge = (orderStatus, paymentStatus) => {
         const styles = {
-            pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
-            processing: "bg-blue-100 text-blue-700 border-blue-200",
+            unpaid: "bg-amber-100 text-amber-700 border-amber-200", // Belum bayar
+            waiting_process: "bg-blue-100 text-blue-700 border-blue-200", // Lunas, nunggu di-klik Terima Pesanan
+            processing: "bg-indigo-100 text-indigo-700 border-indigo-200", // Lagi dikemas
             shipped: "bg-purple-100 text-purple-700 border-purple-200",
             completed: "bg-green-100 text-green-700 border-green-200",
             cancelled: "bg-red-100 text-red-700 border-red-200",
         };
+
         const labels = {
-            pending: "Belum Dibayar",
-            processing: "Pesanan Diproses",
+            unpaid: "Belum Dibayar",
+            waiting_process: "Menunggu Diproses",
+            processing: "Sedang Dikemas",
             shipped: "Sedang Dikirim",
             completed: "Selesai",
             cancelled: "Dibatalkan",
         };
+
+        // Tentukan state aslinya berdasarkan gabungan order & payment
+        let currentState = orderStatus;
+        if (orderStatus === "pending") {
+            currentState =
+                paymentStatus === "paid" ? "waiting_process" : "unpaid";
+        }
+
         return (
             <Badge
                 variant="outline"
-                className={`px-3 py-1 font-bold ${styles[status] || ""}`}
+                className={`px-3 py-1 font-bold ${styles[currentState] || ""}`}
             >
-                {labels[status] || status}
+                {labels[currentState] || currentState}
             </Badge>
         );
     };
@@ -473,7 +484,10 @@ export default function TransactionShow({ transaction }) {
                                 <h2 className="text-2xl font-bold tracking-tight">
                                     Invoice: {transaction.invoice_code}
                                 </h2>
-                                {getStatusBadge(transaction.order_status)}
+                                {getStatusBadge(
+                                    transaction.order_status,
+                                    transaction.payment_status,
+                                )}
                             </div>
                             <a
                                 href={route("admin.transactions.print", {
@@ -516,7 +530,7 @@ export default function TransactionShow({ transaction }) {
                                 Rincian Pesanan
                             </div>
                             <div className="divide-y">
-                                {transaction.transaction_details.map((item) => (
+                                {transaction.details?.map((item, index) => (
                                     <div
                                         key={item.id}
                                         className="flex gap-4 p-4"

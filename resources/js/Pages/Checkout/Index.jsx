@@ -94,16 +94,17 @@ export default function CheckoutIndex({ store, midtransClientKey }) {
             });
 
             if (response.data.success) {
+                // Simpan invoice code ke dalam variabel konstanta biar nggak hilang
+                const finalInvoiceCode = response.data.invoice_code;
+
                 // --- SIMPAN KE RIWAYAT LOKAL ---
                 const savedOrders = JSON.parse(
                     localStorage.getItem("guest_orders") || "[]",
                 );
                 // Masukin invoice baru ke urutan paling atas, maksimal simpan 5 pesanan terakhir
                 const newOrders = [
-                    response.data.invoice_code,
-                    ...savedOrders.filter(
-                        (inv) => inv !== response.data.invoice_code,
-                    ),
+                    finalInvoiceCode,
+                    ...savedOrders.filter((inv) => inv !== finalInvoiceCode),
                 ].slice(0, 5);
                 localStorage.setItem("guest_orders", JSON.stringify(newOrders));
 
@@ -111,30 +112,34 @@ export default function CheckoutIndex({ store, midtransClientKey }) {
                     window.snap.pay(response.data.snap_token, {
                         onSuccess: function (result) {
                             window.onbeforeunload = null;
-                            clearPurchasedItems();
-                            router.get(`/order/${response.data.invoice_code}`);
+                            clearPurchasedItems(); // Hapus keranjang karena udah dibeli
+                            // Pake window.location.href biar redirect-nya hard-reload (lebih aman)
+                            window.location.href = `/order/${finalInvoiceCode}`;
                         },
                         onPending: function (result) {
                             window.onbeforeunload = null;
-                            clearPurchasedItems();
-                            router.get(`/order/${response.data.invoice_code}`);
+                            clearPurchasedItems(); // Hapus keranjang
+                            window.location.href = `/order/${finalInvoiceCode}`;
                         },
                         onError: function (result) {
                             window.onbeforeunload = null;
-                            alert("Pembayaran Gagal!");
-                            setProcessing(false);
+                            // Walaupun error bayar, pesanannya KAN UDAH MASUK DATABASE.
+                            // Jadi keranjangnya tetep harus dihapus biar gak dibeli 2x.
+                            clearPurchasedItems();
+                            window.location.href = `/order/${finalInvoiceCode}`;
                         },
                         onClose: function () {
                             window.onbeforeunload = null;
+                            // Sama, tutup popup = pesanan udah dibikin. Kosongkan keranjang.
                             clearPurchasedItems();
-                            router.get(`/order/${response.data.invoice_code}`);
+                            window.location.href = `/order/${finalInvoiceCode}`;
                         },
                     });
                 } else {
-                    // --- BAGIAN INI YANG DIBENERIN ---
-                    // Langsung redirect kalau bukan Midtrans (berarti WA/Manual)
+                    // --- LOGIC MANUAL / WHATSAPP ---
                     clearPurchasedItems();
-                    router.get(`/order/${response.data.invoice_code}`);
+                    // Pake window.location.href juga biar konsisten
+                    window.location.href = `/order/${finalInvoiceCode}`;
                 }
             }
         } catch (error) {
@@ -145,6 +150,8 @@ export default function CheckoutIndex({ store, midtransClientKey }) {
                         general: error.response.data.message,
                     },
                 );
+            } else {
+                alert("Terjadi kesalahan sistem. Silakan coba lagi.");
             }
         }
     };
