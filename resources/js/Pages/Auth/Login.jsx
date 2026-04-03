@@ -78,15 +78,6 @@ export default function Login({ status, canResetPassword }) {
                         <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">
                             Selamat Datang!
                         </h2>
-                        <p className="mt-2 text-sm text-gray-600">
-                            Belum punya akun?{" "}
-                            <Link
-                                href={route("register")}
-                                className="font-bold text-orange-600 hover:text-orange-500"
-                            >
-                                Daftar sekarang gratis
-                            </Link>
-                        </p>
                     </div>
 
                     <div className="mt-10">

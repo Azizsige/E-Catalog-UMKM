@@ -11,11 +11,12 @@ class Product extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'user_id',      // Pastikan ini ada (yg tadi kita fix)
+        'user_id',
         'category_id',
         'name',
         'slug',
         'price',
+        'weight', // <--- TAMBAHIN INI YA BRO!
         'stock',
         'description',
         'image',

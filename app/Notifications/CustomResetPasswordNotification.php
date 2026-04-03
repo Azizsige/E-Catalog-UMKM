@@ -46,7 +46,7 @@ class CustomResetPasswordNotification extends Notification
             ->greeting('Halo, Juragan!') // Sapaan
             ->line('Kami menerima permintaan untuk mengatur ulang password akun Anda.')
             ->action('Reset Password Sekarang', $url) // Tombol
-            ->line('Link ini hanya berlaku selama 60 menit demi keamanan akun Anda.')
+            ->line('Link ini hanya berlaku selama 5 menit demi keamanan akun Anda.')
             ->line('Jika Anda tidak merasa meminta reset password, silakan abaikan email ini.')
             ->salutation('Salam Sukses, Tim Juragan Lapak'); // Penutup
     }

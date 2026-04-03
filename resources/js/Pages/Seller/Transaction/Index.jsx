@@ -116,7 +116,7 @@ export default function TransactionIndex({ transactions, filters }) {
                 return (
                     <Badge
                         variant="outline"
-                        className="bg-yellow-100 text-yellow-700 border-yellow-200"
+                        className="text-yellow-700 bg-yellow-100 border-yellow-200"
                     >
                         <Clock className="w-3 h-3 mr-1" /> Menunggu
                     </Badge>
@@ -125,7 +125,7 @@ export default function TransactionIndex({ transactions, filters }) {
                 return (
                     <Badge
                         variant="outline"
-                        className="bg-blue-100 text-blue-700 border-blue-200"
+                        className="text-blue-700 bg-blue-100 border-blue-200"
                     >
                         <Package className="w-3 h-3 mr-1" /> Diproses
                     </Badge>
@@ -134,7 +134,7 @@ export default function TransactionIndex({ transactions, filters }) {
                 return (
                     <Badge
                         variant="outline"
-                        className="bg-purple-100 text-purple-700 border-purple-200"
+                        className="text-purple-700 bg-purple-100 border-purple-200"
                     >
                         <Truck className="w-3 h-3 mr-1" /> Dikirim
                     </Badge>
@@ -143,7 +143,7 @@ export default function TransactionIndex({ transactions, filters }) {
                 return (
                     <Badge
                         variant="outline"
-                        className="bg-green-100 text-green-700 border-green-200"
+                        className="text-green-700 bg-green-100 border-green-200"
                     >
                         <CheckCircle className="w-3 h-3 mr-1" /> Selesai
                     </Badge>
@@ -152,7 +152,7 @@ export default function TransactionIndex({ transactions, filters }) {
                 return (
                     <Badge
                         variant="outline"
-                        className="bg-red-100 text-red-700 border-red-200"
+                        className="text-red-700 bg-red-100 border-red-200"
                     >
                         <XCircle className="w-3 h-3 mr-1" /> Batal
                     </Badge>
@@ -200,10 +200,10 @@ export default function TransactionIndex({ transactions, filters }) {
                 </div>
 
                 {/* --- AREA FILTER --- */}
-                <div className="p-5 mb-6 bg-white border shadow-sm rounded-xl overflow-visible">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div className="p-5 mb-6 overflow-visible bg-white border shadow-sm rounded-xl">
+                    <div className="grid items-end grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                         {/* A. Dropdown Status (Pengganti Tabs) */}
-                        <div className="flex flex-col z-20">
+                        <div className="z-20 flex flex-col">
                             <span className="text-[10px] font-bold text-gray-500 uppercase ml-2 mb-1">
                                 Status Pesanan
                             </span>
@@ -236,7 +236,7 @@ export default function TransactionIndex({ transactions, filters }) {
                             <span className="text-[10px] font-bold text-gray-500 uppercase ml-2 mb-1">
                                 Rentang Waktu (Default Hari Ini)
                             </span>
-                            <div className="flex items-center w-full transition-colors border border-gray-200 overflow-hidden rounded-md bg-gray-50 focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500">
+                            <div className="flex items-center w-full overflow-hidden transition-colors border border-gray-200 rounded-md bg-gray-50 focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500">
                                 <div className="pl-3 pr-2 text-gray-400 border-r border-gray-200">
                                     <Calendar className="w-4 h-4" />
                                 </div>
@@ -248,7 +248,7 @@ export default function TransactionIndex({ transactions, filters }) {
                                     }
                                     className="w-full px-3 py-2 text-sm font-medium text-gray-700 bg-transparent border-none cursor-pointer focus:ring-0"
                                 />
-                                <span className="flex items-center h-full px-2 text-sm text-gray-400 border-l border-r border-gray-200 bg-gray-100">
+                                <span className="flex items-center h-full px-2 text-sm text-gray-400 bg-gray-100 border-l border-r border-gray-200">
                                     s/d
                                 </span>
                                 <input
@@ -261,7 +261,7 @@ export default function TransactionIndex({ transactions, filters }) {
                         </div>
 
                         {/* C. Filter Metode Pembayaran */}
-                        <div className="flex flex-col z-10">
+                        <div className="z-10 flex flex-col">
                             <span className="text-[10px] font-bold text-gray-500 uppercase ml-2 mb-1">
                                 Metode Bayar
                             </span>
@@ -274,7 +274,7 @@ export default function TransactionIndex({ transactions, filters }) {
                                     onChange={(e) =>
                                         setPaymentMethod(e.target.value)
                                     }
-                                    className="w-full pl-10 pr-8 py-2 text-sm font-medium text-gray-700 transition-colors border border-gray-200 rounded-md outline-none appearance-none cursor-pointer bg-gray-50 focus:bg-white focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                                    className="w-full py-2 pl-10 pr-8 text-sm font-medium text-gray-700 transition-colors border border-gray-200 rounded-md outline-none appearance-none cursor-pointer bg-gray-50 focus:bg-white focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
                                 >
                                     <option value="all">Semua Metode</option>
                                     <option value="midtrans">
@@ -288,7 +288,7 @@ export default function TransactionIndex({ transactions, filters }) {
                         </div>
 
                         {/* D. Search Bar (Turun ke bawah di layar kecil) */}
-                        <div className="flex flex-col z-10 lg:col-span-4 mt-2">
+                        <div className="z-10 flex flex-col mt-2 lg:col-span-4">
                             <span className="text-[10px] font-bold text-gray-500 uppercase ml-2 mb-1">
                                 Pencarian Cepat
                             </span>
@@ -299,7 +299,7 @@ export default function TransactionIndex({ transactions, filters }) {
                                 <Input
                                     type="text"
                                     placeholder="Ketik Invoice atau Nama Pembeli lalu tunggu sebentar..."
-                                    className="pl-10 transition-colors bg-gray-50 focus:bg-white border-gray-200 shadow-inner"
+                                    className="pl-10 transition-colors border-gray-200 shadow-inner bg-gray-50 focus:bg-white"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
@@ -309,7 +309,7 @@ export default function TransactionIndex({ transactions, filters }) {
                 </div>
 
                 {/* Tabel Transaksi */}
-                <div className="overflow-hidden bg-white border shadow-sm z-0 rounded-xl">
+                <div className="z-0 overflow-hidden bg-white border shadow-sm rounded-xl">
                     <div className="overflow-x-auto min-h-[300px]">
                         <table className="w-full text-sm text-left">
                             <thead className="font-medium text-gray-600 border-b bg-gray-50">
@@ -381,7 +381,7 @@ export default function TransactionIndex({ transactions, filters }) {
                                                     trx.order_status,
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                                            <td className="px-6 py-4 text-gray-500 whitespace-nowrap">
                                                 {new Date(
                                                     trx.created_at,
                                                 ).toLocaleDateString("id-ID", {

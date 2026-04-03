@@ -60,6 +60,7 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
             'price' => 'required|numeric|min:0',
+            'weight' => 'required|numeric|min:1', // <-- Tambahin ini
             'stock' => 'required|numeric|min:0',
             'description' => 'required|string',
             'video_url' => 'nullable|url',
@@ -84,6 +85,7 @@ class ProductController extends Controller
             'name'        => $request->name,
             'slug'        => Str::slug($request->name) . '-' . Str::random(5),
             'price'       => $request->price,
+            'weight'      => $request->weight, // <-- Tambahin ini
             'stock'       => $request->stock,
             'description' => $request->description,
             'image'       => $mainImagePath, // Foto Utama
@@ -136,6 +138,7 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
             'price' => 'required|numeric|min:0',
+            'weight' => 'required|numeric|min:1',
             'stock' => 'required|integer|min:0',
             'description' => 'nullable|string',
             'video_url' => 'nullable|url',
@@ -147,7 +150,7 @@ class ProductController extends Controller
         ]);
 
         // 3. Update Data Utama (Tanpa Gambar dulu)
-        $data = $request->only(['name', 'category_id', 'price', 'stock', 'description', 'video_url']);
+        $data = $request->only(['name', 'category_id', 'price', 'weight', 'stock', 'description', 'video_url']);
         
         // Update slug cuma kalau nama berubah
         if ($request->name !== $product->name) {

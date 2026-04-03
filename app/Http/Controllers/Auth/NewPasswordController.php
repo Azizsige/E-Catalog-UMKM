@@ -13,14 +13,24 @@ use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\User;
 
 class NewPasswordController extends Controller
 {
     /**
      * Display the password reset view.
      */
-    public function create(Request $request): Response
+   public function create(Request $request): Response|RedirectResponse
     {
+        // 1. Ambil user berdasarkan email dari URL
+        $user = User::where('email', $request->email)->first();
+
+        // 2. Cek apakah user ada DAN tokennya masih valid/belum expired (5 menit)
+        if (!$user || !Password::broker()->tokenExists($user, $request->route('token'))) {
+            return Inertia::render('Auth/ResetLinkExpired'); // <--- INI YANG BERUBAH
+        }
+
+        // Kalau aman, baru render halaman form bikin password baru
         return Inertia::render('Auth/ResetPassword', [
             'email' => $request->email,
             'token' => $request->route('token'),

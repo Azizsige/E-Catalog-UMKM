@@ -23,6 +23,7 @@ export default function ProductEdit({ product, categories }) {
         name: product.name,
         category_id: product.category_id,
         price: product.price,
+        weight: product.weight || "",
         stock: product.stock,
         description: product.description || "",
         video_url: product.video_url || "",
@@ -140,12 +141,12 @@ export default function ProductEdit({ product, categories }) {
         <SellerLayout>
             <Head title="Edit Produk" />
 
-            <div className="max-w-3xl mx-auto pb-10">
+            <div className="max-w-3xl pb-10 mx-auto">
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-6">
                     <Link href={route("admin.products.index")}>
                         <Button variant="outline" size="icon">
-                            <ArrowLeft className="h-4 w-4" />
+                            <ArrowLeft className="w-4 h-4" />
                         </Button>
                     </Link>
                     <div>
@@ -158,12 +159,12 @@ export default function ProductEdit({ product, categories }) {
                     </div>
                 </div>
 
-                <div className="bg-white border rounded-xl p-6 shadow-sm">
+                <div className="p-6 bg-white border shadow-sm rounded-xl">
                     <form onSubmit={handleSubmit} className="space-y-8">
                         {/* SECTION 1: INFO */}
                         <div className="space-y-4">
-                            <h3 className="text-lg font-semibold flex items-center gap-2">
-                                <span className="bg-blue-100 text-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                            <h3 className="flex items-center gap-2 text-lg font-semibold">
+                                <span className="flex items-center justify-center w-6 h-6 text-xs text-blue-600 bg-blue-100 rounded-full">
                                     1
                                 </span>
                                 Informasi Produk
@@ -179,17 +180,17 @@ export default function ProductEdit({ product, categories }) {
                                     }
                                 />
                                 {errors.name && (
-                                    <p className="text-red-500 text-sm">
+                                    <p className="text-sm text-red-500">
                                         {errors.name}
                                     </p>
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="category">Kategori</Label>
                                     <select
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+                                        className="flex w-full h-10 px-3 py-2 text-sm border rounded-md border-input bg-background focus-visible:ring-2 focus-visible:ring-ring"
                                         value={data.category_id}
                                         onChange={(e) =>
                                             setData(
@@ -231,14 +232,35 @@ export default function ProductEdit({ product, categories }) {
                                     className="w-full md:w-1/2"
                                 />
                             </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="weight">
+                                    Berat Barang (Gram)
+                                </Label>
+                                <Input
+                                    type="number"
+                                    id="weight"
+                                    value={data.weight}
+                                    onChange={(e) =>
+                                        setData("weight", e.target.value)
+                                    }
+                                    placeholder="Contoh: 1000 (untuk 1 Kg)"
+                                    className="w-full md:w-1/2"
+                                />
+                                {errors.weight && (
+                                    <p className="text-sm text-red-500">
+                                        {errors.weight}
+                                    </p>
+                                )}
+                            </div>
                         </div>
 
                         <hr className="border-gray-100" />
 
                         {/* SECTION 2: MEDIA */}
                         <div className="space-y-6">
-                            <h3 className="text-lg font-semibold flex items-center gap-2">
-                                <span className="bg-blue-100 text-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                            <h3 className="flex items-center gap-2 text-lg font-semibold">
+                                <span className="flex items-center justify-center w-6 h-6 text-xs text-blue-600 bg-blue-100 rounded-full">
                                     2
                                 </span>
                                 Foto & Video
@@ -277,10 +299,10 @@ export default function ProductEdit({ product, categories }) {
                                             <img
                                                 src={mainImagePreview}
                                                 alt="Main Preview"
-                                                className="absolute inset-0 w-full h-full object-contain p-2"
+                                                className="absolute inset-0 object-contain w-full h-full p-2"
                                             />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                <p className="text-white text-sm font-medium">
+                                            <div className="absolute inset-0 flex items-center justify-center gap-2 transition-opacity opacity-0 bg-black/40 group-hover:opacity-100">
+                                                <p className="text-sm font-medium text-white">
                                                     Klik untuk ganti foto
                                                 </p>
                                             </div>
@@ -302,7 +324,7 @@ export default function ProductEdit({ product, categories }) {
 
                                 {/* 1. Dropzone */}
                                 <div
-                                    className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 hover:border-blue-400 transition-colors cursor-pointer"
+                                    className="p-6 text-center transition-colors border-2 border-gray-300 border-dashed cursor-pointer rounded-xl hover:bg-gray-50 hover:border-blue-400"
                                     onClick={() =>
                                         galleryInputRef.current.click()
                                     }
@@ -329,7 +351,7 @@ export default function ProductEdit({ product, categories }) {
                                 </div>
 
                                 {/* 2. Preview Grid (Gabungan Lama + Baru) */}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+                                <div className="grid grid-cols-2 gap-4 mt-4 sm:grid-cols-4">
                                     {/* A. Foto LAMA (Existing) */}
                                     {product.images &&
                                         product.images.map(
@@ -340,11 +362,11 @@ export default function ProductEdit({ product, categories }) {
                                                 ) && (
                                                     <div
                                                         key={img.id}
-                                                        className="relative aspect-square border rounded-lg overflow-hidden group"
+                                                        className="relative overflow-hidden border rounded-lg aspect-square group"
                                                     >
                                                         <img
                                                             src={`/storage/${img.image_path}`}
-                                                            className="w-full h-full object-cover"
+                                                            className="object-cover w-full h-full"
                                                         />
                                                         <div className="absolute top-1 right-1">
                                                             <span className="bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded mr-1">
@@ -357,7 +379,7 @@ export default function ProductEdit({ product, categories }) {
                                                                         img.id,
                                                                     )
                                                                 }
-                                                                className="bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
+                                                                className="p-1 text-white transition bg-red-500 rounded-full hover:bg-red-600"
                                                                 title="Hapus foto ini"
                                                             >
                                                                 <Trash2 className="w-3 h-3" />
@@ -371,11 +393,11 @@ export default function ProductEdit({ product, categories }) {
                                     {data.extra_images.map((file, index) => (
                                         <div
                                             key={index}
-                                            className="relative aspect-square border rounded-lg overflow-hidden group"
+                                            className="relative overflow-hidden border rounded-lg aspect-square group"
                                         >
                                             <img
                                                 src={URL.createObjectURL(file)}
-                                                className="w-full h-full object-cover"
+                                                className="object-cover w-full h-full"
                                             />
                                             <div className="absolute top-1 right-1">
                                                 <span className="bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded mr-1">
@@ -388,7 +410,7 @@ export default function ProductEdit({ product, categories }) {
                                                             index,
                                                         )
                                                     }
-                                                    className="bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
+                                                    className="p-1 text-white transition bg-red-500 rounded-full hover:bg-red-600"
                                                 >
                                                     <X className="w-3 h-3" />
                                                 </button>
@@ -401,7 +423,7 @@ export default function ProductEdit({ product, categories }) {
                             <div className="space-y-2">
                                 <Label htmlFor="video_url">Video Review</Label>
                                 <div className="relative">
-                                    <Youtube className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                                    <Youtube className="absolute w-5 h-5 text-gray-400 left-3 top-3" />
                                     <Input
                                         id="video_url"
                                         className="pl-10"
@@ -418,9 +440,9 @@ export default function ProductEdit({ product, categories }) {
 
                         {/* SECTION 3: DESKRIPSI */}
                         <div className="space-y-4">
-                            <div className="flex justify-between items-end">
-                                <h3 className="text-lg font-semibold flex items-center gap-2">
-                                    <span className="bg-blue-100 text-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                            <div className="flex items-end justify-between">
+                                <h3 className="flex items-center gap-2 text-lg font-semibold">
+                                    <span className="flex items-center justify-center w-6 h-6 text-xs text-blue-600 bg-blue-100 rounded-full">
                                         3
                                     </span>
                                     Deskripsi
@@ -443,7 +465,7 @@ export default function ProductEdit({ product, categories }) {
                             </div>
                             <textarea
                                 rows="6"
-                                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                className="flex w-full px-3 py-2 text-sm border rounded-md border-input bg-background"
                                 value={data.description}
                                 onChange={(e) =>
                                     setData("description", e.target.value)
@@ -455,9 +477,9 @@ export default function ProductEdit({ product, categories }) {
                             <Button
                                 type="submit"
                                 disabled={processing}
-                                className="w-full md:w-auto px-8 h-12 bg-blue-600 hover:bg-blue-700"
+                                className="w-full h-12 px-8 bg-blue-600 md:w-auto hover:bg-blue-700"
                             >
-                                <Save className="mr-2 h-5 w-5" />
+                                <Save className="w-5 h-5 mr-2" />
                                 {processing ? "Menyimpan..." : "Update Produk"}
                             </Button>
                         </div>
