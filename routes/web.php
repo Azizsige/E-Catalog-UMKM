@@ -10,11 +10,13 @@ use App\Http\Controllers\Seller\StoreController as MainStoreController;
 use App\Http\Controllers\Seller\TransactionController as MainTransactionController;
 use App\Http\Controllers\Admin\CategoryController; 
 use App\Http\Controllers\Admin\NotificationController; // PENTING: Tambahkan ini untuk notifikasi admin
+use App\Http\Controllers\Admin\ReportController;
 // Controller Publik (Guest)
 use App\Http\Controllers\Public\ProductController as PublicProductController;
 use App\Http\Controllers\Public\CartController;
 use App\Http\Controllers\Public\CheckoutController;
 use App\Http\Controllers\Public\OrderController;
+use App\Http\Controllers\RajaOngkirController;
 
 // ==========================================
 // 1. AREA PUBLIK (Katalog & Guest Checkout)
@@ -36,6 +38,11 @@ Route::post('/checkout/process', [CheckoutController::class, 'store'])->name('ch
 Route::get('/order/{invoice}', [\App\Http\Controllers\Public\OrderController::class, 'track'])
     ->name('order.track')
     ->where('invoice', '.*'); // <--- INI KUNCI MAGIC-NYA
+
+    Route::get('/api/provinces', [App\Http\Controllers\RajaOngkirController::class, 'getProvinces']);
+Route::get('/api/cities/{provinceId}', [App\Http\Controllers\RajaOngkirController::class, 'getCities']);
+Route::get('/api/districts/{cityId}', [App\Http\Controllers\RajaOngkirController::class, 'getDistricts']); // <-- TAMBAHAN BARU
+Route::post('/api/cost', [App\Http\Controllers\RajaOngkirController::class, 'checkCost']);
 
 // Webhook Midtrans (Jangan dikasih auth/CSRF karena diakses oleh server Midtrans)
 // Route::post('/midtrans/callback', [CheckoutController::class, 'callback']); 
@@ -63,6 +70,10 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::get('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('admin.notifications.read');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('admin.notifications.index');
 Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('admin.notifications.readAll');
+
+// Rute Laporan Keuangan
+Route::get('/reports', [ReportController::class, 'index'])->name('admin.reports.index');
+Route::get('/reports/export', [ReportController::class, 'export'])->name('admin.reports.export');
 });
 
 // Profile Standard Breeze
@@ -70,6 +81,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+Route::fallback(function () {
+    return \Inertia\Inertia::render('Errors/404');
 });
 
 require __DIR__.'/auth.php';

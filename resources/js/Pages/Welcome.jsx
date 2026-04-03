@@ -6,6 +6,7 @@ import {
     Store,
     Plus,
     CheckCircle2,
+    PackageX, // Tambahan Icon
 } from "lucide-react";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
@@ -204,29 +205,43 @@ export default function Welcome({
                         </div>
                     </div>
 
-                    {/* Section Kategori */}
+                    {/* --- Section Kategori --- */}
                     <div className="py-12 bg-gray-50">
                         <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
                             <h2 className="flex items-center gap-2 mb-6 text-xl font-bold">
                                 <ShoppingBag className="w-5 h-5 text-orange-600" />{" "}
                                 Kategori Pilihan
                             </h2>
-                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
-                                {categories.map((cat) => (
-                                    <div
-                                        key={cat.id}
-                                        onClick={() => handleCategory(cat.slug)}
-                                        className="p-4 text-center transition-all bg-white border cursor-pointer rounded-xl hover:border-orange-500 hover:-translate-y-1 hover:shadow-md group"
-                                    >
-                                        <div className="flex items-center justify-center w-10 h-10 mx-auto mb-3 font-bold text-orange-600 transition-colors bg-orange-100 rounded-full group-hover:bg-orange-600 group-hover:text-white">
-                                            {cat.name.charAt(0)}
+
+                            {/* FIX BUG: Tampilan Kategori Kosong */}
+                            {categories.length > 0 ? (
+                                <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+                                    {categories.map((cat) => (
+                                        <div
+                                            key={cat.id}
+                                            onClick={() =>
+                                                handleCategory(cat.slug)
+                                            }
+                                            className="p-4 text-center transition-all bg-white border cursor-pointer rounded-xl hover:border-orange-500 hover:-translate-y-1 hover:shadow-md group"
+                                        >
+                                            <div className="flex items-center justify-center w-10 h-10 mx-auto mb-3 font-bold text-orange-600 transition-colors bg-orange-100 rounded-full group-hover:bg-orange-600 group-hover:text-white">
+                                                {cat.name.charAt(0)}
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-700 group-hover:text-orange-600">
+                                                {cat.name}
+                                            </span>
                                         </div>
-                                        <span className="text-sm font-medium text-gray-700 group-hover:text-orange-600">
-                                            {cat.name}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="p-8 text-center bg-white border border-dashed border-gray-300 rounded-xl">
+                                    <Store className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                                    <p className="text-gray-500 font-medium">
+                                        Belum ada kategori yang ditambahkan oleh
+                                        penjual.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </>
@@ -306,6 +321,7 @@ export default function Welcome({
                     )}
                 </div>
 
+                {/* FIX BUG: Tampilan Produk Kosong */}
                 {products.length > 0 ? (
                     <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
                         {products.map((product) => {
@@ -334,7 +350,7 @@ export default function Welcome({
                                     }`}
                                 >
                                     <div className="relative overflow-hidden bg-gray-200 aspect-square">
-                                        {/* Overlay Gelap & Tulisan Habis di Tengah (MUNCUL KALAU STOK 0) */}
+                                        {/* Overlay Gelap & Tulisan Habis di Tengah */}
                                         {isOutofStock && (
                                             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-10 flex items-center justify-center">
                                                 <span className="px-4 py-2 text-sm font-black tracking-wider text-white transform -rotate-12 bg-red-600 border-2 rounded-lg shadow-xl md:text-base border-white/20">
@@ -347,7 +363,6 @@ export default function Welcome({
                                             <img
                                                 src={`/storage/${product.image}`}
                                                 alt={product.name}
-                                                // Tambahin efek grayscale dan matikan zoom hover kalau habis
                                                 className={`object-cover w-full h-full transition-transform duration-500 ${
                                                     isOutofStock
                                                         ? "grayscale"
@@ -360,7 +375,7 @@ export default function Welcome({
                                             </div>
                                         )}
 
-                                        {/* Badge Kecil di Pojok Kiri Atas (Hanya tampil jika stok ada) */}
+                                        {/* Badge Kecil di Pojok Kiri Atas */}
                                         {!isOutofStock && (
                                             <div className="absolute top-2 left-2 bg-black/60 backdrop-blur text-white text-[10px] px-2 py-1 rounded font-medium z-10">
                                                 Stok: {product.stock}
@@ -390,7 +405,6 @@ export default function Welcome({
                                             </span>
                                             <button
                                                 onClick={(e) => {
-                                                    // Hentikan propagasi event biar gak bentrok sama Link
                                                     e.preventDefault();
                                                     e.stopPropagation();
 
@@ -422,18 +436,26 @@ export default function Welcome({
                         })}
                     </div>
                 ) : (
-                    <div className="py-20 text-center bg-white border border-dashed rounded-xl">
-                        <Search className="w-12 h-12 mx-auto text-gray-300" />
-                        <h3 className="mt-2 text-sm font-semibold text-gray-900">
-                            Produk tidak ditemukan
+                    <div className="py-20 text-center bg-white border border-gray-200 shadow-sm rounded-2xl">
+                        <PackageX className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                        <h3 className="text-lg font-bold text-gray-900">
+                            Yahh, belum ada produk nih! 😕
                         </h3>
-                        <Button
-                            onClick={clearFilters}
-                            variant="outline"
-                            className="mt-4"
-                        >
-                            Lihat Semua Produk
-                        </Button>
+                        <p className="mt-2 text-gray-500 max-w-md mx-auto">
+                            {isFiltering
+                                ? "Produk yang kamu cari atau kategori ini belum tersedia. Coba kata kunci pencarian yang lain ya."
+                                : "Penjual belum menambahkan produk ke dalam katalog. Silakan kembali lagi nanti."}
+                        </p>
+                        {isFiltering && (
+                            <Button
+                                onClick={clearFilters}
+                                variant="default"
+                                className="mt-6 bg-orange-600 hover:bg-orange-700 text-white font-bold"
+                            >
+                                <X className="w-4 h-4 mr-2" /> Hapus Pencarian &
+                                Filter
+                            </Button>
+                        )}
                     </div>
                 )}
             </main>

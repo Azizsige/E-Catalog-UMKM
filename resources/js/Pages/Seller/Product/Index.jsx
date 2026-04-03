@@ -86,13 +86,13 @@ export default function ProductIndex({ products, categories, filters }) {
                 </div>
                 <Link href={route("admin.products.create")}>
                     <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Tambah Produk
+                        <PlusCircle className="w-4 h-4 mr-2" /> Tambah Produk
                     </Button>
                 </Link>
             </div>
 
             {/* --- AREA FILTER PENCARIAN & KATEGORI --- */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-4 bg-white p-4 rounded-md border items-center justify-start z-10 relative">
+            <div className="relative z-10 flex flex-col items-center justify-start gap-3 p-4 mb-4 bg-white border rounded-md sm:flex-row">
                 {/* Search Bar */}
                 <div className="relative w-full sm:w-64">
                     <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -115,7 +115,7 @@ export default function ProductIndex({ products, categories, filters }) {
                     <select
                         value={categoryId}
                         onChange={(e) => setCategoryId(e.target.value)}
-                        className="w-full pl-10 pr-8 py-2 text-sm border border-input bg-background rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors cursor-pointer appearance-none text-gray-900"
+                        className="w-full py-2 pl-10 pr-8 text-sm text-gray-900 transition-colors border rounded-md outline-none appearance-none cursor-pointer border-input bg-background ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
                         <option value="all">Semua Kategori</option>
                         {categories.map((cat) => (
@@ -128,13 +128,14 @@ export default function ProductIndex({ products, categories, filters }) {
             </div>
 
             {/* TABEL ASLI LU */}
-            <div className="rounded-md border bg-white mb-6">
+            <div className="mb-6 bg-white border rounded-md">
                 <Table>
                     <TableHeader className="bg-gray-50">
                         <TableRow>
                             <TableHead className="w-[80px]">Gambar</TableHead>
                             <TableHead>Nama Produk</TableHead>
                             <TableHead>Kategori</TableHead>
+                            <TableHead>Berat ( Gram )</TableHead>
                             <TableHead>Harga</TableHead>
                             <TableHead>Stok</TableHead>
                             <TableHead className="text-right">Aksi</TableHead>
@@ -148,11 +149,11 @@ export default function ProductIndex({ products, categories, filters }) {
                                         {product.image ? (
                                             <img
                                                 src={`/storage/${product.image}`}
-                                                className="w-12 h-12 rounded-md object-cover border"
+                                                className="object-cover w-12 h-12 border rounded-md"
                                                 alt={product.name}
                                             />
                                         ) : (
-                                            <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center text-gray-400">
+                                            <div className="flex items-center justify-center w-12 h-12 text-gray-400 bg-gray-100 rounded-md">
                                                 <ImageIcon className="w-6 h-6" />
                                             </div>
                                         )}
@@ -164,6 +165,12 @@ export default function ProductIndex({ products, categories, filters }) {
                                         <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-secondary text-secondary-foreground">
                                             {product.category?.name ||
                                                 "Tanpa Kategori"}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell>
+                                        <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground">
+                                            {`${product.weight} Gram` ||
+                                                "Berat belum diatur"}
                                         </span>
                                     </TableCell>
                                     <TableCell>
@@ -193,7 +200,7 @@ export default function ProductIndex({ products, categories, filters }) {
                                                     variant="outline"
                                                     size="sm"
                                                 >
-                                                    <Edit className="h-4 w-4" />
+                                                    <Edit className="w-4 h-4" />
                                                 </Button>
                                             </Link>
 
@@ -204,7 +211,7 @@ export default function ProductIndex({ products, categories, filters }) {
                                                     confirmDelete(product.id)
                                                 }
                                             >
-                                                <Trash2 className="h-4 w-4" />
+                                                <Trash2 className="w-4 h-4" />
                                             </Button>
                                         </div>
                                     </TableCell>
@@ -226,7 +233,7 @@ export default function ProductIndex({ products, categories, filters }) {
                 </Table>
 
                 {/* --- PAGINATION --- */}
-                <div className="px-4 py-3 border-t bg-gray-50/50 flex flex-col sm:flex-row sm:justify-between items-center gap-4 rounded-b-md">
+                <div className="flex flex-col items-center gap-4 px-4 py-3 border-t bg-gray-50/50 sm:flex-row sm:justify-between rounded-b-md">
                     <div className="text-xs text-muted-foreground">
                         Menampilkan {products.from || 0} - {products.to || 0}{" "}
                         dari {products.total} produk
@@ -248,7 +255,7 @@ export default function ProductIndex({ products, categories, filters }) {
                             ) : (
                                 <span
                                     key={i}
-                                    className="px-3 py-2 text-sm text-muted-foreground border border-transparent"
+                                    className="px-3 py-2 text-sm border border-transparent text-muted-foreground"
                                     dangerouslySetInnerHTML={{
                                         __html: link.label,
                                     }}

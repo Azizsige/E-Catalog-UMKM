@@ -21,6 +21,7 @@ export default function ProductCreate({ categories }) {
         name: "",
         category_id: "",
         price: "",
+        weight: "",
         stock: "",
         description: "",
         image: null, // Main Image (Single)
@@ -139,12 +140,12 @@ export default function ProductCreate({ categories }) {
         <SellerLayout>
             <Head title="Tambah Produk" />
 
-            <div className="max-w-3xl mx-auto pb-10">
+            <div className="max-w-3xl pb-10 mx-auto">
                 {/* Header Page */}
                 <div className="flex items-center gap-4 mb-6">
                     <Link href={route("admin.products.index")}>
                         <Button variant="outline" size="icon">
-                            <ArrowLeft className="h-4 w-4" />
+                            <ArrowLeft className="w-4 h-4" />
                         </Button>
                     </Link>
                     <div>
@@ -158,12 +159,12 @@ export default function ProductCreate({ categories }) {
                     </div>
                 </div>
 
-                <div className="bg-white border rounded-xl p-6 shadow-sm">
+                <div className="p-6 bg-white border shadow-sm rounded-xl">
                     <form onSubmit={handleSubmit} className="space-y-8">
                         {/* === SECTION 1: INFORMASI DASAR === */}
                         <div className="space-y-4">
-                            <h3 className="text-lg font-semibold flex items-center gap-2">
-                                <span className="bg-orange-100 text-orange-600 w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                            <h3 className="flex items-center gap-2 text-lg font-semibold">
+                                <span className="flex items-center justify-center w-6 h-6 text-xs text-orange-600 bg-orange-100 rounded-full">
                                     1
                                 </span>
                                 Informasi Produk
@@ -180,17 +181,17 @@ export default function ProductCreate({ categories }) {
                                     placeholder="Contoh: Kebab Turki Daging Premium"
                                 />
                                 {errors.name && (
-                                    <p className="text-red-500 text-sm">
+                                    <p className="text-sm text-red-500">
                                         {errors.name}
                                     </p>
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="category">Kategori</Label>
                                     <select
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+                                        className="flex w-full h-10 px-3 py-2 text-sm border rounded-md border-input bg-background focus-visible:ring-2 focus-visible:ring-ring"
                                         value={data.category_id}
                                         onChange={(e) =>
                                             setData(
@@ -209,7 +210,7 @@ export default function ProductCreate({ categories }) {
                                         ))}
                                     </select>
                                     {errors.category_id && (
-                                        <p className="text-red-500 text-sm">
+                                        <p className="text-sm text-red-500">
                                             {errors.category_id}
                                         </p>
                                     )}
@@ -224,7 +225,7 @@ export default function ProductCreate({ categories }) {
                                         placeholder="0"
                                     />
                                     {errors.price && (
-                                        <p className="text-red-500 text-sm">
+                                        <p className="text-sm text-red-500">
                                             {errors.price}
                                         </p>
                                     )}
@@ -244,8 +245,29 @@ export default function ProductCreate({ categories }) {
                                     className="w-full md:w-1/2"
                                 />
                                 {errors.stock && (
-                                    <p className="text-red-500 text-sm">
+                                    <p className="text-sm text-red-500">
                                         {errors.stock}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="weight">
+                                    Berat Barang (Gram)
+                                </Label>
+                                <Input
+                                    type="number"
+                                    id="weight"
+                                    value={data.weight}
+                                    onChange={(e) =>
+                                        setData("weight", e.target.value)
+                                    }
+                                    placeholder="Contoh: 1000 (untuk 1 Kg)"
+                                    className="w-full md:w-1/2"
+                                />
+                                {errors.weight && (
+                                    <p className="text-sm text-red-500">
+                                        {errors.weight}
                                     </p>
                                 )}
                             </div>
@@ -255,8 +277,8 @@ export default function ProductCreate({ categories }) {
 
                         {/* === SECTION 2: MEDIA (FOTO & VIDEO) === */}
                         <div className="space-y-6">
-                            <h3 className="text-lg font-semibold flex items-center gap-2">
-                                <span className="bg-orange-100 text-orange-600 w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                            <h3 className="flex items-center gap-2 text-lg font-semibold">
+                                <span className="flex items-center justify-center w-6 h-6 text-xs text-orange-600 bg-orange-100 rounded-full">
                                     2
                                 </span>
                                 Foto & Video
@@ -300,11 +322,11 @@ export default function ProductCreate({ categories }) {
                                                     data.image,
                                                 )}
                                                 alt="Main Preview"
-                                                className="absolute inset-0 w-full h-full object-contain p-2"
+                                                className="absolute inset-0 object-contain w-full h-full p-2"
                                             />
                                             {/* Overlay Hover */}
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                <p className="text-white text-sm font-medium">
+                                            <div className="absolute inset-0 flex items-center justify-center gap-2 transition-opacity opacity-0 bg-black/40 group-hover:opacity-100">
+                                                <p className="text-sm font-medium text-white">
                                                     Klik untuk ganti
                                                 </p>
                                             </div>
@@ -319,15 +341,15 @@ export default function ProductCreate({ categories }) {
                                             </button>
                                         </>
                                     ) : (
-                                        <div className="space-y-3 text-gray-500 group-hover:text-orange-600 transition-colors">
-                                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto group-hover:bg-orange-100 transition-colors">
+                                        <div className="space-y-3 text-gray-500 transition-colors group-hover:text-orange-600">
+                                            <div className="flex items-center justify-center w-16 h-16 mx-auto transition-colors bg-gray-100 rounded-full group-hover:bg-orange-100">
                                                 <ImagePlus className="w-8 h-8" />
                                             </div>
                                             <div>
-                                                <p className="font-bold text-sm">
+                                                <p className="text-sm font-bold">
                                                     Upload Thumbnail
                                                 </p>
-                                                <p className="text-xs mt-1">
+                                                <p className="mt-1 text-xs">
                                                     Drag & Drop atau Klik disini
                                                 </p>
                                                 <p className="text-[10px] text-gray-400 mt-1">
@@ -338,7 +360,7 @@ export default function ProductCreate({ categories }) {
                                     )}
                                 </div>
                                 {errors.image && (
-                                    <p className="text-red-500 text-sm mt-1">
+                                    <p className="mt-1 text-sm text-red-500">
                                         {errors.image}
                                     </p>
                                 )}
@@ -349,7 +371,7 @@ export default function ProductCreate({ categories }) {
                                 <Label>Galeri Foto Tambahan</Label>
 
                                 <div
-                                    className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 hover:border-orange-400 transition-colors cursor-pointer group"
+                                    className="p-8 text-center transition-colors border-2 border-gray-300 border-dashed cursor-pointer rounded-xl hover:bg-gray-50 hover:border-orange-400 group"
                                     onDrop={handleGalleryDrop}
                                     onDragOver={handleDragOver}
                                     onClick={() =>
@@ -366,11 +388,11 @@ export default function ProductCreate({ categories }) {
                                     />
 
                                     <div className="flex flex-col items-center justify-center gap-2 text-gray-500 group-hover:text-orange-600">
-                                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center group-hover:bg-orange-100 transition-colors">
+                                        <div className="flex items-center justify-center w-12 h-12 transition-colors bg-gray-100 rounded-full group-hover:bg-orange-100">
                                             <UploadCloud className="w-6 h-6" />
                                         </div>
-                                        <p className="font-medium text-sm">
-                                            <span className="text-orange-600 font-bold">
+                                        <p className="text-sm font-medium">
+                                            <span className="font-bold text-orange-600">
                                                 Klik untuk upload
                                             </span>{" "}
                                             atau drag & drop gambar kesini
@@ -383,19 +405,19 @@ export default function ProductCreate({ categories }) {
 
                                 {/* Preview Grid Galeri */}
                                 {data.extra_images.length > 0 && (
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4 mt-4 animate-in fade-in slide-in-from-top-4">
+                                    <div className="grid grid-cols-2 gap-4 mt-4 sm:grid-cols-4 md:grid-cols-5 animate-in fade-in slide-in-from-top-4">
                                         {data.extra_images.map(
                                             (file, index) => (
                                                 <div
                                                     key={index}
-                                                    className="relative aspect-square group border rounded-lg overflow-hidden bg-gray-100"
+                                                    className="relative overflow-hidden bg-gray-100 border rounded-lg aspect-square group"
                                                 >
                                                     <img
                                                         src={URL.createObjectURL(
                                                             file,
                                                         )}
                                                         alt={`Preview ${index}`}
-                                                        className="w-full h-full object-cover"
+                                                        className="object-cover w-full h-full"
                                                     />
                                                     <button
                                                         type="button"
@@ -404,7 +426,7 @@ export default function ProductCreate({ categories }) {
                                                                 index,
                                                             )
                                                         }
-                                                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-600"
+                                                        className="absolute p-1 text-white transition-opacity bg-red-500 rounded-full shadow-sm opacity-0 top-1 right-1 group-hover:opacity-100 hover:bg-red-600"
                                                     >
                                                         <X className="w-3 h-3" />
                                                     </button>
@@ -414,7 +436,7 @@ export default function ProductCreate({ categories }) {
                                     </div>
                                 )}
                                 {errors.extra_images && (
-                                    <p className="text-red-500 text-sm">
+                                    <p className="text-sm text-red-500">
                                         {errors.extra_images}
                                     </p>
                                 )}
@@ -426,7 +448,7 @@ export default function ProductCreate({ categories }) {
                                     Video Review (YouTube)
                                 </Label>
                                 <div className="relative">
-                                    <div className="absolute left-3 top-3 text-gray-400">
+                                    <div className="absolute text-gray-400 left-3 top-3">
                                         <Youtube className="w-5 h-5" />
                                     </div>
                                     <Input
@@ -446,9 +468,9 @@ export default function ProductCreate({ categories }) {
 
                         {/* === SECTION 3: DESKRIPSI AI === */}
                         <div className="space-y-4">
-                            <div className="flex justify-between items-end">
-                                <h3 className="text-lg font-semibold flex items-center gap-2">
-                                    <span className="bg-orange-100 text-orange-600 w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                            <div className="flex items-end justify-between">
+                                <h3 className="flex items-center gap-2 text-lg font-semibold">
+                                    <span className="flex items-center justify-center w-6 h-6 text-xs text-orange-600 bg-orange-100 rounded-full">
                                         3
                                     </span>
                                     Deskripsi
@@ -479,7 +501,7 @@ export default function ProductCreate({ categories }) {
                                 <textarea
                                     id="description"
                                     rows="6"
-                                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    className="flex w-full px-3 py-2 text-sm border rounded-md border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                     placeholder="Jelaskan keunggulan produkmu..."
                                     value={data.description}
                                     onChange={(e) =>
@@ -487,7 +509,7 @@ export default function ProductCreate({ categories }) {
                                     }
                                 />
                                 {errors.description && (
-                                    <p className="text-red-500 text-sm">
+                                    <p className="text-sm text-red-500">
                                         {errors.description}
                                     </p>
                                 )}
@@ -499,9 +521,9 @@ export default function ProductCreate({ categories }) {
                             <Button
                                 type="submit"
                                 disabled={processing}
-                                className="w-full md:w-auto text-base px-8 h-12 bg-orange-600 hover:bg-orange-700"
+                                className="w-full h-12 px-8 text-base bg-orange-600 md:w-auto hover:bg-orange-700"
                             >
-                                <Save className="mr-2 h-5 w-5" />
+                                <Save className="w-5 h-5 mr-2" />
                                 {processing
                                     ? "Menyimpan Produk..."
                                     : "Simpan Produk"}

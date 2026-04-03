@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
         // 1. Buat Akun Super Admin
         User::create([
             'name' => 'Super Admin',
-            'email' => 'admin@test.com',
+            'email' => 'azizsigefake@gmail.com',
             'password' => bcrypt('password'), // Passwordnya: password
             'role' => 'admin',
         ]);

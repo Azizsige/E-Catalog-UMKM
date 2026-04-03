@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, usePage } from "@inertiajs/react";
+import { Link, usePage, router } from "@inertiajs/react";
 import { Button } from "@/Components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/Components/ui/sheet";
 import {
@@ -27,6 +27,7 @@ import {
     AlertTriangle,
     CheckCircle2,
     Info,
+    FileText,
 } from "lucide-react";
 import { Toaster } from "@/Components/ui/sonner";
 import { toast } from "sonner";
@@ -65,10 +66,13 @@ export default function SellerLayout({ children }) {
     );
 
     // Sinkronisasi kalau pindah halaman via Inertia
+    // Sinkronisasi kalau pindah halaman via Inertia
+    const notifString = JSON.stringify(notifications); // Trik anti-overwrite
+
     useEffect(() => {
         setNotifData(notifications?.data || []);
         setUnreadCount(notifications?.unread_count || 0);
-    }, [notifications]);
+    }, [notifString]); // <--- Ganti dependency-nya pakai notifString
 
     // SIHIR PENANGKAP SINYAL (LARAVEL ECHO)
     useEffect(() => {
@@ -81,13 +85,48 @@ export default function SellerLayout({ children }) {
             channel.notification((notification) => {
                 console.log("NOTIF REAL-TIME MASUK:", notification);
 
-                // 1. Munculin Toast cantik dari pojok kanan atas!
-                toast(notification.title, {
-                    description: notification.message,
-                    duration: 5000,
-                    // Icon disesuaikan dgn warna dari helper
-                    className: getNotifStyle(notification.icon_type).color,
-                });
+                // Ambil style berdasarkan tipe notif
+                const style = getNotifStyle(notification.icon_type);
+                const iconType =
+                    notification.icon_type || notification.data?.icon_type;
+                const NotifIcon = getNotifStyle(iconType).icon;
+
+                // 1. Munculin Toast Premium Custom!
+                // 1. Munculin Toast Solid Color yang BISA DIKLIK!
+                const toastId = toast(
+                    // Kita bungkus isinya pakai elemen DIV yang interaktif
+                    <div
+                        className="flex flex-col w-full py-1"
+                        onClick={() => {
+                            if (notification.id) {
+                                // Arahin pakai router Inertia
+                                router.get(
+                                    route(
+                                        "admin.notifications.read",
+                                        notification.id,
+                                    ),
+                                );
+                                // Lenyapkan HANYA toast yang diklik ini
+                                toast.dismiss(toastId);
+                            }
+                        }}
+                    >
+                        <span className="text-sm font-bold text-white">
+                            {notification.title || notification.data?.title}
+                        </span>
+                        <span className="mt-1 text-xs font-medium leading-relaxed text-white/90">
+                            {notification.message || notification.data?.message}
+                        </span>
+                    </div>,
+                    {
+                        duration: Infinity,
+                        // Styling kotak luarnya
+                        className: cn(
+                            "cursor-pointer transition-all hover:scale-[1.02] shadow-xl border !p-4",
+                            style.toastBg,
+                        ),
+                    },
+                );
 
                 // 2. Otomatis nambahin Lonceng Merah (+1)
                 setUnreadCount((prev) => prev + 1);
@@ -118,19 +157,36 @@ export default function SellerLayout({ children }) {
     const getNotifStyle = (type) => {
         switch (type) {
             case "order":
-                return { icon: ShoppingBag, color: "text-blue-500 bg-blue-50" };
+                return {
+                    icon: ShoppingBag,
+                    color: "text-blue-600 bg-blue-100", // Buat Dropdown Lonceng
+                    toastBg: "!bg-blue-600 !text-white !border-blue-700", // Buat Toast (Background Biru Penuh)
+                };
             case "stock":
                 return {
                     icon: AlertTriangle,
-                    color: "text-amber-500 bg-amber-50",
+                    color: "text-amber-600 bg-amber-100",
+                    toastBg: "!bg-amber-500 !text-white !border-amber-600",
                 };
             case "payment":
                 return {
                     icon: CheckCircle2,
-                    color: "text-emerald-500 bg-emerald-50",
+                    color: "text-emerald-600 bg-emerald-100",
+                    toastBg: "!bg-emerald-500 !text-white !border-emerald-600",
+                };
+            case "error":
+            case "cancel":
+                return {
+                    icon: AlertTriangle,
+                    color: "text-red-600 bg-red-100",
+                    toastBg: "!bg-red-600 !text-white !border-red-700",
                 };
             default:
-                return { icon: Info, color: "text-gray-500 bg-gray-100" };
+                return {
+                    icon: Info,
+                    color: "text-gray-600 bg-gray-100",
+                    toastBg: "!bg-gray-800 !text-white !border-gray-900",
+                };
         }
     };
 
@@ -165,6 +221,12 @@ export default function SellerLayout({ children }) {
             active: route().current("admin.store.edit"),
             icon: Settings,
         },
+        {
+            label: "Laporan Penjualan",
+            href: route("admin.reports.index"),
+            active: route().current("admin.reports.*"),
+            icon: FileText, // atau bisa pakai icon bar-chart dll dari lucide-react
+        },
     ];
 
     return (
@@ -176,14 +238,14 @@ export default function SellerLayout({ children }) {
                     isCollapsed ? "w-[6rem]" : "w-64",
                 )}
             >
-                <div className="flex items-center justify-between px-4 border-b h-14 bg-white mt-4">
+                <div className="flex items-center justify-between px-4 mt-4 bg-white border-b h-14">
                     <div className="flex items-center gap-2 overflow-hidden">
                         <Link href="/">
-                            <Store className="w-6 h-6 text-orange-600 flex-shrink-0" />
+                            <Store className="flex-shrink-0 w-6 h-6 text-orange-600" />
                         </Link>
                         {!isCollapsed && (
                             <Link href="/">
-                                <span className="text-lg font-extrabold text-orange-600 tracking-tight whitespace-nowrap">
+                                <span className="text-lg font-extrabold tracking-tight text-orange-600 whitespace-nowrap">
                                     Juragan Lapak
                                 </span>
                             </Link>
@@ -192,14 +254,14 @@ export default function SellerLayout({ children }) {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="text-gray-500 hover:text-orange-600 flex-shrink-0"
+                        className="flex-shrink-0 text-gray-500 hover:text-orange-600"
                         onClick={() => setIsCollapsed(!isCollapsed)}
                     >
                         <Menu className="w-5 h-5" />
                     </Button>
                 </div>
 
-                <nav className="flex flex-col gap-2 px-3 py-4 text-sm font-medium flex-1 overflow-x-hidden">
+                <nav className="flex flex-col flex-1 gap-2 px-3 py-4 overflow-x-hidden text-sm font-medium">
                     {navItems.map((item, index) => (
                         <Link
                             key={index}
@@ -222,7 +284,7 @@ export default function SellerLayout({ children }) {
                                 )}
                             />
                             {!isCollapsed && (
-                                <span className="whitespace-nowrap transition-opacity duration-300">
+                                <span className="transition-opacity duration-300 whitespace-nowrap">
                                     {item.label}
                                 </span>
                             )}
@@ -240,7 +302,7 @@ export default function SellerLayout({ children }) {
             >
                 {/* --- HEADER / TOPBAR (UPDATED) --- */}
                 {/* Perubahan: Tambahin bg-white, shadow-sm, rounded-xl di layar gede */}
-                <header className="sticky top-0 z-30 flex items-center gap-4 px-4 h-14 bg-white border-b sm:static sm:h-16 sm:border sm:rounded-xl sm:shadow-sm sm:px-6 sm:mx-6 sm:mb-2">
+                <header className="sticky top-0 z-30 flex items-center gap-4 px-4 bg-white border-b h-14 sm:static sm:h-16 sm:border sm:rounded-xl sm:shadow-sm sm:px-6 sm:mx-6 sm:mb-2">
                     <Sheet>
                         <SheetTrigger asChild>
                             <Button
@@ -254,10 +316,10 @@ export default function SellerLayout({ children }) {
                         </SheetTrigger>
                         <SheetContent
                             side="left"
-                            className="sm:max-w-xs text-gray-900"
+                            className="text-gray-900 sm:max-w-xs"
                         >
-                            <nav className="grid gap-6 text-lg font-medium mt-6">
-                                <div className="flex items-center gap-2 text-orange-600 mb-4">
+                            <nav className="grid gap-6 mt-6 text-lg font-medium">
+                                <div className="flex items-center gap-2 mb-4 text-orange-600">
                                     <Store className="w-6 h-6" />
                                     <span className="font-bold">
                                         Juragan Lapak
@@ -283,7 +345,7 @@ export default function SellerLayout({ children }) {
                     </Sheet>
 
                     {/* Judul Halaman (Opsional, cakep buat di header) */}
-                    <div className="hidden sm:flex items-center">
+                    <div className="items-center hidden sm:flex">
                         <span className="text-sm font-semibold text-gray-500">
                             Dashboard Panel
                         </span>
@@ -296,7 +358,7 @@ export default function SellerLayout({ children }) {
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="relative text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-full"
+                                    className="relative text-gray-500 rounded-full hover:text-orange-600 hover:bg-orange-50"
                                 >
                                     <Bell className="w-5 h-5" />
 
@@ -322,7 +384,7 @@ export default function SellerLayout({ children }) {
                                     )}
                                 </div>
 
-                                <div className="max-h-80 overflow-y-auto">
+                                <div className="overflow-y-auto max-h-80">
                                     {notifData.length > 0 ? (
                                         notifData.map((notif) => {
                                             const NotifIcon = getNotifStyle(
@@ -331,7 +393,7 @@ export default function SellerLayout({ children }) {
                                             return (
                                                 <DropdownMenuItem
                                                     key={notif.id}
-                                                    className="cursor-pointer px-4 py-3 focus:bg-gray-50 flex items-start gap-3 p-0"
+                                                    className="flex items-start gap-3 p-0 px-4 py-3 cursor-pointer focus:bg-gray-50"
                                                     asChild
                                                 >
                                                     <Link
@@ -339,7 +401,7 @@ export default function SellerLayout({ children }) {
                                                             "admin.notifications.read",
                                                             notif.id,
                                                         )}
-                                                        className="w-full flex items-start gap-3 px-4 py-3"
+                                                        className="flex items-start w-full gap-3 px-4 py-3"
                                                     >
                                                         <div
                                                             className={cn(
@@ -351,7 +413,7 @@ export default function SellerLayout({ children }) {
                                                         >
                                                             <NotifIcon className="w-4 h-4" />
                                                         </div>
-                                                        <div className="flex flex-col gap-1 flex-1">
+                                                        <div className="flex flex-col flex-1 gap-1">
                                                             <p
                                                                 className={cn(
                                                                     "text-sm font-medium",
@@ -360,19 +422,22 @@ export default function SellerLayout({ children }) {
                                                                         : "text-gray-600",
                                                                 )}
                                                             >
-                                                                {
+                                                                {/* FIX: Pakai OR (||) biar support dari DB maupun Realtime */}
+                                                                {notif.title ||
                                                                     notif.data
-                                                                        ?.title
-                                                                }
+                                                                        ?.title}
                                                             </p>
                                                             <p className="text-xs text-gray-500 line-clamp-2">
-                                                                {
+                                                                {/* FIX: Pakai OR (||) juga di sini */}
+                                                                {notif.desc ||
+                                                                    notif.message ||
                                                                     notif.data
-                                                                        ?.message
-                                                                }
+                                                                        ?.message}
                                                             </p>
                                                             <p className="text-[10px] text-gray-400 font-medium mt-1">
-                                                                {notif.time}
+                                                                {/* FIX: Kalau dari realtime belum ada jam, kasih default 'Baru saja' */}
+                                                                {notif.time ||
+                                                                    "Baru saja"}
                                                             </p>
                                                         </div>
                                                         {notif.unread && (
@@ -383,7 +448,7 @@ export default function SellerLayout({ children }) {
                                             );
                                         })
                                     ) : (
-                                        <div className="py-6 text-center text-sm text-gray-500">
+                                        <div className="py-6 text-sm text-center text-gray-500">
                                             Belum ada notifikasi.
                                         </div>
                                     )}
@@ -401,7 +466,7 @@ export default function SellerLayout({ children }) {
 
                         {/* --- USER PROFILE DROPDOWN --- */}
                         <div className="flex items-center gap-2">
-                            <div className="hidden md:block text-right mr-2">
+                            <div className="hidden mr-2 text-right md:block">
                                 <p className="text-xs font-bold text-gray-900">
                                     {user.name}
                                 </p>
@@ -414,13 +479,13 @@ export default function SellerLayout({ children }) {
                                     <Button
                                         variant="secondary"
                                         size="icon"
-                                        className="rounded-full ring-2 ring-gray-100 hover:ring-orange-200 transition-all shadow-sm"
+                                        className="transition-all rounded-full shadow-sm ring-2 ring-gray-100 hover:ring-orange-200"
                                     >
                                         <Avatar>
                                             <AvatarImage
                                                 src={user.avatar_url}
                                             />
-                                            <AvatarFallback className="bg-orange-100 text-orange-600 font-bold uppercase">
+                                            <AvatarFallback className="font-bold text-orange-600 uppercase bg-orange-100">
                                                 {user.name.charAt(0)}
                                             </AvatarFallback>
                                         </Avatar>
@@ -437,18 +502,18 @@ export default function SellerLayout({ children }) {
                                     <DropdownMenuItem asChild>
                                         <Link
                                             href="/"
-                                            className="flex w-full items-center cursor-pointer"
+                                            className="flex items-center w-full cursor-pointer"
                                         >
-                                            <ExternalLink className="mr-2 h-4 w-4" />
+                                            <ExternalLink className="w-4 h-4 mr-2" />
                                             <span>Kunjungi Website</span>
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem asChild>
                                         <Link
                                             href={route("profile.edit")}
-                                            className="flex w-full items-center cursor-pointer"
+                                            className="flex items-center w-full cursor-pointer"
                                         >
-                                            <UserCircle className="mr-2 h-4 w-4" />
+                                            <UserCircle className="w-4 h-4 mr-2" />
                                             <span>Pengaturan Akun</span>
                                         </Link>
                                     </DropdownMenuItem>
@@ -476,7 +541,21 @@ export default function SellerLayout({ children }) {
                 {/* --- RENDER KONTEN HALAMAN --- */}
                 <main className="p-4 sm:px-6 sm:py-2">{children}</main>
             </div>
-            <Toaster position="top-right" richColors />
+            <Toaster
+                position="top-right"
+                closeButton={true}
+                visibleToasts={3}
+                expand={true}
+                toastOptions={{
+                    classNames: {
+                        title: "text-sm font-bold",
+                        description: "text-xs mt-1 leading-relaxed",
+                        // Tombol X pakai background hitam transparan biar masuk ke semua warna
+                        closeButton:
+                            "!left-auto !right-3 !top-3 !bg-black/20 hover:!bg-black/40 !text-white !border-none transition-colors",
+                    },
+                }}
+            />
         </div>
     );
 }
