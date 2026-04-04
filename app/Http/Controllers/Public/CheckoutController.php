@@ -39,6 +39,7 @@ class CheckoutController extends Controller
             'recipient_name' => 'required|string|max:255',
             'phone_number'   => 'required|string|max:20',
             'address_line'   => 'required|string',
+            'province'       => 'required|string',
             'city'           => 'required|string',
             'postal_code'    => 'required|string|max:10',
             'items'          => 'required|array|min:1', 
@@ -54,6 +55,7 @@ class CheckoutController extends Controller
                 'recipient_name' => $request->recipient_name,
                 'phone_number'   => $request->phone_number,
                 'address_line'   => $request->address_line,
+                'province'       => $request->province,
                 'city'           => $request->city,
                 'postal_code'    => $request->postal_code,
             ]);

@@ -199,9 +199,16 @@ export default function CheckoutIndex({ store, midtransClientKey }) {
             qty: item.qty,
         }));
 
+        const selectedProvince =
+            provinces.find((p) => p.id == formData.province_id)?.name || "";
+        const selectedCity =
+            cities.find((c) => c.id == formData.city_id)?.name || "";
+
         try {
             const response = await axios.post(route("checkout.store"), {
                 ...formData,
+                province: selectedProvince, // <-- Kirim nama provinsi
+                city: selectedCity, // <-- Kirim nama kota
                 shipping_cost: ongkir,
                 items: itemsPayload,
             });

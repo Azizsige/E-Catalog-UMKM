@@ -91,7 +91,8 @@ export default function Navbar() {
         );
         if (itemIndex > -1) {
             newItems[itemIndex].qty = newQty;
-            const newCount = newItems.reduce((acc, curr) => acc + curr.qty, 0);
+            // FIX BUG: Ubah newCount jadi items.length
+            const newCount = newItems.length;
             updateLocalCart({ items: newItems, count: newCount });
         }
     };
@@ -101,7 +102,8 @@ export default function Navbar() {
         const newItems = guestCart.items.filter(
             (item) => item.product.id !== productId,
         );
-        const newCount = newItems.reduce((acc, curr) => acc + curr.qty, 0);
+        // FIX BUG: Ubah newCount jadi items.length
+        const newCount = newItems.length;
         updateLocalCart({ items: newItems, count: newCount });
 
         // Kalau keranjang udah kosong setelah dihapus, tutup dropdownnya
@@ -121,17 +123,17 @@ export default function Navbar() {
 
     return (
         <>
-            <nav className="bg-white border-b sticky top-0 z-40 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16 items-center">
+            <nav className="sticky top-0 z-40 bg-white border-b shadow-sm">
+                <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
+                    <div className="flex items-center justify-between h-16">
                         {/* LOGO */}
-                        <div className="flex-shrink-0 flex items-center">
+                        <div className="flex items-center flex-shrink-0">
                             <Link
                                 href="/"
-                                className="text-2xl font-bold text-primary flex items-center gap-2"
+                                className="flex items-center gap-2 text-2xl font-bold text-primary"
                             >
                                 <Store className="w-8 h-8 text-orange-600" />
-                                <span className="text-gray-900 tracking-tighter">
+                                <span className="tracking-tighter text-gray-900">
                                     Juragan
                                     <span className="text-orange-600">
                                         {" "}
@@ -149,11 +151,11 @@ export default function Navbar() {
                                     loadRecentOrders(); // Refresh data terbaru
                                     setIsTrackModalOpen(true);
                                 }}
-                                className="p-2 rounded-full flex items-center gap-2 hover:bg-gray-100 transition-colors text-gray-600 hover:text-orange-600"
+                                className="flex items-center gap-2 p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-100 hover:text-orange-600"
                                 title="Lacak Pesanan"
                             >
                                 <Search className="w-5 h-5" />
-                                <span className="hidden md:inline text-sm font-medium">
+                                <span className="hidden text-sm font-medium md:inline">
                                     Lacak
                                 </span>
                             </button>
@@ -165,23 +167,23 @@ export default function Navbar() {
                                         onClick={() =>
                                             setIsCartOpen(!isCartOpen)
                                         }
-                                        className="relative p-2 rounded-full flex items-center gap-2 hover:bg-gray-100 transition-colors text-gray-600 hover:text-orange-600 focus:outline-none"
+                                        className="relative flex items-center gap-2 p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-100 hover:text-orange-600 focus:outline-none"
                                     >
                                         <ShoppingCart className="w-6 h-6" />
                                         {guestCart.count > 0 && (
-                                            <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full border-2 border-white">
+                                            <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform bg-red-600 border-2 border-white rounded-full translate-x-1/4 -translate-y-1/4">
                                                 {guestCart.count}
                                             </span>
                                         )}
-                                        <span className="hidden sm:inline font-medium text-sm">
+                                        <span className="hidden text-sm font-medium sm:inline">
                                             Keranjang
                                         </span>
                                     </button>
 
                                     {/* DROPDOWN ISI KERANJANG LOKAL */}
                                     {isCartOpen && (
-                                        <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-xl shadow-xl border overflow-hidden z-50">
-                                            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+                                        <div className="absolute right-0 z-50 mt-3 overflow-hidden bg-white border shadow-xl w-80 sm:w-96 rounded-xl">
+                                            <div className="flex items-center justify-between p-4 border-b bg-gray-50">
                                                 <h3 className="font-semibold text-gray-900">
                                                     Keranjang ({guestCart.count}
                                                     )
@@ -197,7 +199,7 @@ export default function Navbar() {
                                             </div>
                                             <div className="max-h-[60vh] overflow-y-auto">
                                                 {guestCart.items.length > 0 ? (
-                                                    <div className="divide-y text-sm">
+                                                    <div className="text-sm divide-y">
                                                         {guestCart.items.map(
                                                             (item) => (
                                                                 <div
@@ -206,12 +208,12 @@ export default function Navbar() {
                                                                             .product
                                                                             .id
                                                                     }
-                                                                    className="p-4 flex gap-3 hover:bg-gray-50 relative group"
+                                                                    className="relative flex gap-3 p-4 hover:bg-gray-50 group"
                                                                 >
-                                                                    <div className="w-12 h-12 bg-gray-100 rounded-md overflow-hidden flex-shrink-0 border">
+                                                                    <div className="flex-shrink-0 w-12 h-12 overflow-hidden bg-gray-100 border rounded-md">
                                                                         <img
                                                                             src={`/storage/${item.product.image}`}
-                                                                            className="w-full h-full object-cover"
+                                                                            className="object-cover w-full h-full"
                                                                             alt={
                                                                                 item
                                                                                     .product
@@ -220,8 +222,8 @@ export default function Navbar() {
                                                                         />
                                                                     </div>
                                                                     <div className="flex-1 min-w-0 text-left">
-                                                                        <div className="flex justify-between items-start relative">
-                                                                            <p className="text-sm font-medium text-gray-900 truncate pr-6">
+                                                                        <div className="relative flex items-start justify-between">
+                                                                            <p className="pr-6 text-sm font-medium text-gray-900 truncate">
                                                                                 {
                                                                                     item
                                                                                         .product
@@ -244,14 +246,14 @@ export default function Navbar() {
                                                                             </button>
                                                                         </div>
                                                                         <div className="flex items-center justify-between mt-1">
-                                                                            <span className="text-xs text-orange-600 font-bold">
+                                                                            <span className="text-xs font-bold text-orange-600">
                                                                                 {formatRupiah(
                                                                                     item
                                                                                         .product
                                                                                         .price,
                                                                                 )}
                                                                             </span>
-                                                                            <div className="flex items-center border rounded-md h-6">
+                                                                            <div className="flex items-center h-6 border rounded-md">
                                                                                 <button
                                                                                     onClick={() =>
                                                                                         updateQty(
@@ -324,9 +326,9 @@ export default function Navbar() {
                                                     onClick={() =>
                                                         setIsCartOpen(false)
                                                     }
-                                                    className="w-full block"
+                                                    className="block w-full"
                                                 >
-                                                    <Button className="w-full bg-orange-600 hover:bg-orange-700 shadow-md">
+                                                    <Button className="w-full bg-orange-600 shadow-md hover:bg-orange-700">
                                                         Lihat Semua Keranjang
                                                     </Button>
                                                 </Link>
@@ -338,12 +340,12 @@ export default function Navbar() {
 
                             {/* --- MENU LOGIN / PROFILE --- */}
                             {auth.user ? (
-                                <div className="relative group ml-2 border-l pl-4 border-gray-200">
-                                    <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-all border border-transparent focus:outline-none">
-                                        <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold border border-orange-200 uppercase">
+                                <div className="relative pl-4 ml-2 border-l border-gray-200 group">
+                                    <button className="flex items-center gap-2 px-3 py-2 transition-all border border-transparent rounded-lg hover:bg-gray-100 focus:outline-none">
+                                        <div className="flex items-center justify-center w-8 h-8 font-bold text-orange-600 uppercase bg-orange-100 border border-orange-200 rounded-full">
                                             {auth.user.name.charAt(0)}
                                         </div>
-                                        <div className="hidden sm:block text-left">
+                                        <div className="hidden text-left sm:block">
                                             <p className="text-xs font-bold text-gray-900 leading-none truncate max-w-[100px]">
                                                 {auth.user.name}
                                             </p>
@@ -356,7 +358,7 @@ export default function Navbar() {
                                     </button>
                                     {/* Dropdown Profile */}
                                     <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-[60] invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200 origin-top-right">
-                                        <div className="px-4 py-3 bg-gray-50 border-b">
+                                        <div className="px-4 py-3 border-b bg-gray-50">
                                             <p className="text-sm font-bold text-gray-900 truncate">
                                                 {auth.user.name}
                                             </p>
@@ -367,7 +369,7 @@ export default function Navbar() {
                                         <div className="p-2 space-y-1">
                                             <Link
                                                 href={route("admin.dashboard")}
-                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg font-medium"
+                                                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100"
                                             >
                                                 <User className="w-4 h-4 text-orange-600" />{" "}
                                                 Dashboard Admin
@@ -377,7 +379,7 @@ export default function Navbar() {
                                                 href={route("logout")}
                                                 method="post"
                                                 as="button"
-                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg font-bold"
+                                                className="flex items-center w-full gap-2 px-3 py-2 text-sm font-bold text-red-600 rounded-lg hover:bg-red-50"
                                             >
                                                 <X className="w-4 h-4" /> Keluar
                                             </Link>
@@ -393,15 +395,15 @@ export default function Navbar() {
             {/* --- MODAL LACAK PESANAN --- */}
             {isTrackModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-                        <div className="p-5 border-b flex justify-between items-center bg-gray-50">
-                            <h2 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+                    <div className="w-full max-w-md overflow-hidden bg-white shadow-2xl rounded-2xl">
+                        <div className="flex items-center justify-between p-5 border-b bg-gray-50">
+                            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
                                 <Search className="w-5 h-5 text-orange-600" />{" "}
                                 Lacak Pesanan
                             </h2>
                             <button
                                 onClick={() => setIsTrackModalOpen(false)}
-                                className="text-gray-400 hover:bg-gray-200 p-1 rounded-full transition-colors"
+                                className="p-1 text-gray-400 transition-colors rounded-full hover:bg-gray-200"
                             >
                                 <X size={20} />
                             </button>
@@ -418,7 +420,7 @@ export default function Navbar() {
                                         setInvoiceInput(e.target.value)
                                     }
                                     placeholder="Contoh: INV/20260303/ABCDE"
-                                    className="flex-1 uppercase font-mono text-sm"
+                                    className="flex-1 font-mono text-sm uppercase"
                                     autoFocus
                                 />
                                 <Button
@@ -433,7 +435,7 @@ export default function Navbar() {
                             {/* Riwayat di Perangkat Ini */}
                             {recentOrders.length > 0 && (
                                 <div>
-                                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                                    <h3 className="mb-3 text-xs font-bold tracking-wider text-gray-500 uppercase">
                                         Pesanan Terakhir Anda
                                     </h3>
                                     <div className="space-y-2">
@@ -444,7 +446,7 @@ export default function Navbar() {
                                                 onClick={() =>
                                                     setIsTrackModalOpen(false)
                                                 }
-                                                className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-white hover:border-orange-200 hover:bg-orange-50 transition-colors group"
+                                                className="flex items-center justify-between p-3 transition-colors bg-white border border-gray-100 rounded-lg hover:border-orange-200 hover:bg-orange-50 group"
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <FileText className="w-5 h-5 text-gray-400 group-hover:text-orange-500" />

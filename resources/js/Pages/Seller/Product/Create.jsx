@@ -24,15 +24,12 @@ export default function ProductCreate({ categories }) {
         weight: "",
         stock: "",
         description: "",
-        image: null, // Main Image (Single)
-        video_url: "",
-        extra_images: [], // Gallery Images (Array)
+        image: null, // Dropzone 1: Cover Utama (Wajib Gambar)
+        extra_images: [], // Dropzone 2: Galeri Slider
+        video_url: "", // Kolom Text: Link YouTube
     });
 
-    // State untuk Loading AI
     const [isGenerating, setIsGenerating] = useState(false);
-
-    // Refs untuk Trigger Input File
     const mainImageInputRef = useRef(null);
     const galleryInputRef = useRef(null);
 
@@ -48,10 +45,7 @@ export default function ProductCreate({ categories }) {
         try {
             const response = await axios.post(
                 route("admin.products.generate-ai"),
-                {
-                    name: data.name,
-                    keywords: "Enak, Murah, Terlaris",
-                },
+                { name: data.name, keywords: "Enak, Murah, Terlaris" },
             );
             if (response.data.success) {
                 setData("description", response.data.description);
@@ -64,49 +58,56 @@ export default function ProductCreate({ categories }) {
         }
     };
 
-    // --- 3. LOGIC FOTO UTAMA (MAIN IMAGE) ---
-    const handleMainImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) setData("image", file);
+    // --- 3. LOGIC FOTO UTAMA (COVER) ---
+    const processMainImage = (file) => {
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            alert("Hanya boleh upload file gambar (JPG/PNG)!");
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            alert("Ukuran gambar maksimal 2MB!");
+            return;
+        }
+        setData("image", file);
     };
 
+    const handleMainImageChange = (e) => processMainImage(e.target.files[0]);
     const handleMainDrop = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith("image/")) {
-            setData("image", file);
-        }
+        processMainImage(e.dataTransfer.files[0]);
     };
-
     const removeMainImage = (e) => {
-        e.stopPropagation(); // Mencegah trigger klik pada container
+        e.stopPropagation();
         setData("image", null);
         if (mainImageInputRef.current) mainImageInputRef.current.value = "";
     };
 
-    // --- 4. LOGIC GALERI (EXTRA IMAGES) ---
-    const handleGallerySelect = (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length > 0) {
-            setData("extra_images", [...data.extra_images, ...files]);
+    // --- 4. LOGIC GALERI (SLIDER) ---
+    const processGalleryImages = (filesArray) => {
+        const validImages = filesArray.filter((file) => {
+            if (!file.type.startsWith("image/")) return false;
+            if (file.size > 2 * 1024 * 1024) {
+                alert(`File ${file.name} terlalu besar (Max 2MB). Dilewati.`);
+                return false;
+            }
+            return true;
+        });
+
+        if (validImages.length > 0) {
+            setData("extra_images", [...data.extra_images, ...validImages]);
         }
     };
 
+    const handleGallerySelect = (e) =>
+        processGalleryImages(Array.from(e.target.files));
     const handleGalleryDrop = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const files = Array.from(e.dataTransfer.files);
-            const imageFiles = files.filter((file) =>
-                file.type.startsWith("image/"),
-            );
-            if (imageFiles.length > 0) {
-                setData("extra_images", [...data.extra_images, ...imageFiles]);
-            }
-        }
+        if (e.dataTransfer.files)
+            processGalleryImages(Array.from(e.dataTransfer.files));
     };
-
     const removeGalleryImage = (indexToRemove) => {
         const updatedImages = data.extra_images.filter(
             (_, index) => index !== indexToRemove,
@@ -114,7 +115,6 @@ export default function ProductCreate({ categories }) {
         setData("extra_images", updatedImages);
     };
 
-    // Prevent default behavior saat drag over
     const handleDragOver = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -141,7 +141,7 @@ export default function ProductCreate({ categories }) {
             <Head title="Tambah Produk" />
 
             <div className="max-w-3xl pb-10 mx-auto">
-                {/* Header Page */}
+                {/* Header */}
                 <div className="flex items-center gap-4 mb-6">
                     <Link href={route("admin.products.index")}>
                         <Button variant="outline" size="icon">
@@ -153,8 +153,7 @@ export default function ProductCreate({ categories }) {
                             Tambah Produk Baru
                         </h2>
                         <p className="text-muted-foreground">
-                            Lengkapi foto dan detail produkmu agar menarik
-                            pembeli.
+                            Lengkapi detail dan galeri foto produkmu.
                         </p>
                     </div>
                 </div>
@@ -171,14 +170,17 @@ export default function ProductCreate({ categories }) {
                             </h3>
 
                             <div className="space-y-2">
-                                <Label htmlFor="name">Nama Produk</Label>
+                                <Label htmlFor="name">
+                                    Nama Produk{" "}
+                                    <span className="text-red-500">*</span>
+                                </Label>
                                 <Input
                                     id="name"
                                     value={data.name}
                                     onChange={(e) =>
                                         setData("name", e.target.value)
                                     }
-                                    placeholder="Contoh: Kebab Turki Daging Premium"
+                                    placeholder="Contoh: Nasi Bebek Madura"
                                 />
                                 {errors.name && (
                                     <p className="text-sm text-red-500">
@@ -189,9 +191,12 @@ export default function ProductCreate({ categories }) {
 
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="category">Kategori</Label>
+                                    <Label htmlFor="category">
+                                        Kategori{" "}
+                                        <span className="text-red-500">*</span>
+                                    </Label>
                                     <select
-                                        className="flex w-full h-10 px-3 py-2 text-sm border rounded-md border-input bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                                        className="flex w-full h-10 px-3 py-2 text-sm border rounded-md border-input bg-background focus-visible:ring-2"
                                         value={data.category_id}
                                         onChange={(e) =>
                                             setData(
@@ -215,9 +220,11 @@ export default function ProductCreate({ categories }) {
                                         </p>
                                     )}
                                 </div>
-
                                 <div className="space-y-2">
-                                    <Label htmlFor="price">Harga (Rp)</Label>
+                                    <Label htmlFor="price">
+                                        Harga (Rp){" "}
+                                        <span className="text-red-500">*</span>
+                                    </Label>
                                     <Input
                                         id="price"
                                         value={formatRupiah(data.price)}
@@ -232,75 +239,71 @@ export default function ProductCreate({ categories }) {
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="stock">Stok Awal</Label>
-                                <Input
-                                    type="number"
-                                    id="stock"
-                                    value={data.stock}
-                                    onChange={(e) =>
-                                        setData("stock", e.target.value)
-                                    }
-                                    placeholder="0"
-                                    className="w-full md:w-1/2"
-                                />
-                                {errors.stock && (
-                                    <p className="text-sm text-red-500">
-                                        {errors.stock}
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="weight">
-                                    Berat Barang (Gram)
-                                </Label>
-                                <Input
-                                    type="number"
-                                    id="weight"
-                                    value={data.weight}
-                                    onChange={(e) =>
-                                        setData("weight", e.target.value)
-                                    }
-                                    placeholder="Contoh: 1000 (untuk 1 Kg)"
-                                    className="w-full md:w-1/2"
-                                />
-                                {errors.weight && (
-                                    <p className="text-sm text-red-500">
-                                        {errors.weight}
-                                    </p>
-                                )}
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="stock">
+                                        Stok Awal{" "}
+                                        <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        id="stock"
+                                        value={data.stock}
+                                        onChange={(e) =>
+                                            setData("stock", e.target.value)
+                                        }
+                                        placeholder="0"
+                                    />
+                                    {errors.stock && (
+                                        <p className="text-sm text-red-500">
+                                            {errors.stock}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="weight">
+                                        Berat Barang (Gram){" "}
+                                        <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        id="weight"
+                                        value={data.weight}
+                                        onChange={(e) =>
+                                            setData("weight", e.target.value)
+                                        }
+                                        placeholder="Contoh: 400"
+                                    />
+                                    {errors.weight && (
+                                        <p className="text-sm text-red-500">
+                                            {errors.weight}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
                         <hr className="border-gray-100" />
 
-                        {/* === SECTION 2: MEDIA (FOTO & VIDEO) === */}
+                        {/* === SECTION 2: MEDIA === */}
                         <div className="space-y-6">
                             <h3 className="flex items-center gap-2 text-lg font-semibold">
                                 <span className="flex items-center justify-center w-6 h-6 text-xs text-orange-600 bg-orange-100 rounded-full">
                                     2
                                 </span>
-                                Foto & Video
+                                Media Produk
                             </h3>
 
-                            {/* --- FOTO UTAMA (DRAG & DROP STYLE) --- */}
+                            {/* DROPZONE 1: GAMBAR UTAMA */}
                             <div className="space-y-2">
                                 <Label className="flex items-center gap-2">
-                                    Foto Utama (Thumbnail)
-                                    <span className="text-xs font-normal text-gray-500">
-                                        *Wajib diisi
+                                    Foto Utama (Thumbnail & Cover Video){" "}
+                                    <span className="text-xs font-normal text-red-500">
+                                        *Wajib
                                     </span>
                                 </Label>
-
                                 <div
-                                    className={`relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all h-64 flex flex-col items-center justify-center group overflow-hidden
-                                        ${
-                                            data.image
-                                                ? "border-orange-500 bg-orange-50/10"
-                                                : "border-gray-300 hover:bg-gray-50 hover:border-orange-400"
-                                        }
-                                    `}
+                                    className={`relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all h-64 flex flex-col items-center justify-center group overflow-hidden ${data.image ? "border-orange-500 bg-orange-50/10" : "border-gray-300 hover:bg-gray-50 hover:border-orange-400"}`}
                                     onClick={() =>
                                         mainImageInputRef.current.click()
                                     }
@@ -312,48 +315,42 @@ export default function ProductCreate({ categories }) {
                                         className="hidden"
                                         ref={mainImageInputRef}
                                         onChange={handleMainImageChange}
-                                        accept="image/*"
+                                        accept="image/jpeg,image/png,image/webp"
                                     />
-
                                     {data.image ? (
                                         <>
                                             <img
                                                 src={URL.createObjectURL(
                                                     data.image,
                                                 )}
-                                                alt="Main Preview"
+                                                alt="Cover"
                                                 className="absolute inset-0 object-contain w-full h-full p-2"
                                             />
-                                            {/* Overlay Hover */}
-                                            <div className="absolute inset-0 flex items-center justify-center gap-2 transition-opacity opacity-0 bg-black/40 group-hover:opacity-100">
+                                            <div className="absolute inset-0 flex items-center justify-center transition-opacity opacity-0 bg-black/40 group-hover:opacity-100">
                                                 <p className="text-sm font-medium text-white">
                                                     Klik untuk ganti
                                                 </p>
                                             </div>
-                                            {/* Tombol Hapus */}
                                             <button
                                                 type="button"
                                                 onClick={removeMainImage}
                                                 className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 transition-colors z-10"
-                                                title="Hapus foto utama"
+                                                title="Hapus cover"
                                             >
                                                 <X className="w-4 h-4" />
                                             </button>
                                         </>
                                     ) : (
-                                        <div className="space-y-3 text-gray-500 transition-colors group-hover:text-orange-600">
-                                            <div className="flex items-center justify-center w-16 h-16 mx-auto transition-colors bg-gray-100 rounded-full group-hover:bg-orange-100">
+                                        <div className="space-y-3 text-gray-500 group-hover:text-orange-600">
+                                            <div className="flex items-center justify-center w-16 h-16 mx-auto bg-gray-100 rounded-full group-hover:bg-orange-100">
                                                 <ImagePlus className="w-8 h-8" />
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold">
-                                                    Upload Thumbnail
+                                                    Upload Cover Utama
                                                 </p>
                                                 <p className="mt-1 text-xs">
-                                                    Drag & Drop atau Klik disini
-                                                </p>
-                                                <p className="text-[10px] text-gray-400 mt-1">
-                                                    JPG, PNG, GIF (Max 2MB)
+                                                    Maksimal 2MB (JPG/PNG)
                                                 </p>
                                             </div>
                                         </div>
@@ -366,10 +363,9 @@ export default function ProductCreate({ categories }) {
                                 )}
                             </div>
 
-                            {/* --- GALERI FOTO (DRAG & DROP MULTIPLE) --- */}
+                            {/* DROPZONE 2: GALERI */}
                             <div className="space-y-2">
-                                <Label>Galeri Foto Tambahan</Label>
-
+                                <Label>Galeri Foto Tambahan (Slider)</Label>
                                 <div
                                     className="p-8 text-center transition-colors border-2 border-gray-300 border-dashed cursor-pointer rounded-xl hover:bg-gray-50 hover:border-orange-400 group"
                                     onDrop={handleGalleryDrop}
@@ -384,28 +380,26 @@ export default function ProductCreate({ categories }) {
                                         className="hidden"
                                         ref={galleryInputRef}
                                         onChange={handleGallerySelect}
-                                        accept="image/*"
+                                        accept="image/jpeg,image/png,image/webp"
                                     />
-
                                     <div className="flex flex-col items-center justify-center gap-2 text-gray-500 group-hover:text-orange-600">
-                                        <div className="flex items-center justify-center w-12 h-12 transition-colors bg-gray-100 rounded-full group-hover:bg-orange-100">
+                                        <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full group-hover:bg-orange-100">
                                             <UploadCloud className="w-6 h-6" />
                                         </div>
                                         <p className="text-sm font-medium">
                                             <span className="font-bold text-orange-600">
                                                 Klik untuk upload
                                             </span>{" "}
-                                            atau drag & drop gambar kesini
+                                            atau drag & drop
                                         </p>
                                         <p className="text-xs">
-                                            Bisa pilih banyak sekaligus
+                                            Bisa pilih banyak sekaligus (Max
+                                            2MB/foto)
                                         </p>
                                     </div>
                                 </div>
-
-                                {/* Preview Grid Galeri */}
                                 {data.extra_images.length > 0 && (
-                                    <div className="grid grid-cols-2 gap-4 mt-4 sm:grid-cols-4 md:grid-cols-5 animate-in fade-in slide-in-from-top-4">
+                                    <div className="grid grid-cols-3 gap-4 mt-4 sm:grid-cols-4 md:grid-cols-5">
                                         {data.extra_images.map(
                                             (file, index) => (
                                                 <div
@@ -435,25 +429,20 @@ export default function ProductCreate({ categories }) {
                                         )}
                                     </div>
                                 )}
-                                {errors.extra_images && (
-                                    <p className="text-sm text-red-500">
-                                        {errors.extra_images}
-                                    </p>
-                                )}
                             </div>
 
-                            {/* Video URL */}
+                            {/* INPUT LINK YOUTUBE */}
                             <div className="space-y-2">
                                 <Label htmlFor="video_url">
-                                    Video Review (YouTube)
+                                    Video Review (Link YouTube - Opsional)
                                 </Label>
                                 <div className="relative">
                                     <div className="absolute text-gray-400 left-3 top-3">
-                                        <Youtube className="w-5 h-5" />
+                                        <Youtube className="w-5 h-5 text-red-500" />
                                     </div>
                                     <Input
                                         id="video_url"
-                                        placeholder="Contoh: https://www.youtube.com/watch?v=..."
+                                        placeholder="Contoh: https://www.youtube.com/watch?v=xxx"
                                         className="pl-10"
                                         value={data.video_url}
                                         onChange={(e) =>
@@ -473,7 +462,8 @@ export default function ProductCreate({ categories }) {
                                     <span className="flex items-center justify-center w-6 h-6 text-xs text-orange-600 bg-orange-100 rounded-full">
                                         3
                                     </span>
-                                    Deskripsi
+                                    Deskripsi{" "}
+                                    <span className="text-red-500">*</span>
                                 </h3>
                                 <button
                                     type="button"
@@ -486,22 +476,21 @@ export default function ProductCreate({ categories }) {
                                             <span className="animate-spin">
                                                 ✨
                                             </span>{" "}
-                                            Sedang Berpikir...
+                                            Berpikir...
                                         </>
                                     ) : (
                                         <>
                                             <Sparkles className="w-3 h-3" />{" "}
-                                            Buat Deskripsi dengan AI
+                                            Buat Deskripsi AI
                                         </>
                                     )}
                                 </button>
                             </div>
-
                             <div className="space-y-2">
                                 <textarea
                                     id="description"
                                     rows="6"
-                                    className="flex w-full px-3 py-2 text-sm border rounded-md border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    className="flex w-full px-3 py-2 text-sm border rounded-md bg-background focus-visible:ring-2 focus-visible:ring-orange-500"
                                     placeholder="Jelaskan keunggulan produkmu..."
                                     value={data.description}
                                     onChange={(e) =>
@@ -516,7 +505,6 @@ export default function ProductCreate({ categories }) {
                             </div>
                         </div>
 
-                        {/* TOMBOL SAVE */}
                         <div className="flex justify-end pt-4">
                             <Button
                                 type="submit"
