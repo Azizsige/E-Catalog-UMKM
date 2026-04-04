@@ -6,7 +6,7 @@ import {
     Store,
     Plus,
     CheckCircle2,
-    PackageX, // Tambahan Icon
+    PackageX,
 } from "lucide-react";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
@@ -23,7 +23,6 @@ export default function Welcome({
     const [searchTerm, setSearchTerm] = useState(filters.search || "");
     const isFiltering = filters.search || filters.category;
 
-    // --- STATE UNTUK TOAST NOTIFICATION ---
     const [toastMessage, setToastMessage] = useState(null);
 
     useEffect(() => {
@@ -65,7 +64,6 @@ export default function Welcome({
         router.get("/");
     };
 
-    // --- FUNGSI TAMBAH KE KERANJANG LOKAL ---
     const addToLocalCart = (e, product) => {
         e.preventDefault();
         e.stopPropagation();
@@ -98,14 +96,23 @@ export default function Welcome({
             });
         }
 
-        currentCart.count = currentCart.items.reduce(
-            (acc, curr) => acc + curr.qty,
-            0,
-        );
+        // FIX BUG: Hitung jumlah JENIS item, bukan total QTY
+        currentCart.count = currentCart.items.length;
+
         localStorage.setItem("guest_cart", JSON.stringify(currentCart));
         window.dispatchEvent(new Event("guest-cart-updated"));
 
         setToastMessage(`Berhasil menambahkan ${product.name} ke keranjang!`);
+    };
+
+    // --- HELPER UNTUK MENGAMBIL INISIAL KATEGORI (Maks 2 Huruf) ---
+    const getCategoryInitials = (name) => {
+        if (!name) return "";
+        const words = name.split(" ");
+        if (words.length >= 2) {
+            return (words[0][0] + words[1][0]).toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase(); // Ambil 2 huruf pertama jika cuma 1 kata
     };
 
     return (
@@ -127,7 +134,7 @@ export default function Welcome({
             {!isFiltering && (
                 <>
                     <div
-                        className="relative bg-center bg-cover border-b bg-white"
+                        className="relative bg-white bg-center bg-cover border-b"
                         style={
                             storeInfo?.banner
                                 ? {
@@ -146,7 +153,7 @@ export default function Welcome({
                         >
                             {/* Logo Toko */}
                             {storeInfo?.logo && (
-                                <div className="overflow-hidden bg-white border-4 border-white rounded-full shadow-xl w-28 h-28 mb-6">
+                                <div className="mb-6 overflow-hidden bg-white border-4 border-white rounded-full shadow-xl w-28 h-28">
                                     <img
                                         src={`/storage/${storeInfo.logo}`}
                                         alt="Logo"
@@ -213,7 +220,7 @@ export default function Welcome({
                                 Kategori Pilihan
                             </h2>
 
-                            {/* FIX BUG: Tampilan Kategori Kosong */}
+                            {/* FIX BUG: Tampilan Kategori Kosong & Logika Icon */}
                             {categories.length > 0 ? (
                                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
                                     {categories.map((cat) => (
@@ -224,8 +231,27 @@ export default function Welcome({
                                             }
                                             className="p-4 text-center transition-all bg-white border cursor-pointer rounded-xl hover:border-orange-500 hover:-translate-y-1 hover:shadow-md group"
                                         >
-                                            <div className="flex items-center justify-center w-10 h-10 mx-auto mb-3 font-bold text-orange-600 transition-colors bg-orange-100 rounded-full group-hover:bg-orange-600 group-hover:text-white">
-                                                {cat.name.charAt(0)}
+                                            {/* Logic Gambar atau Inisial */}
+                                            <div
+                                                className={
+                                                    cat.icon
+                                                        ? "flex items-center justify-center w-12 h-12 mx-auto mb-3 overflow-hidden transition-colors"
+                                                        : "flex items-center justify-center w-12 h-12 mx-auto mb-3 overflow-hidden transition-colors bg-orange-100 rounded-full group-hover:bg-orange-600"
+                                                }
+                                            >
+                                                {cat.icon ? ( // GANTI 'image' DENGAN NAMA FIELD ICON DI DATABASE LU KALAU BEDA (misal 'icon' atau 'image_path')
+                                                    <img
+                                                        src={`/storage/${cat.icon}`} // Sesuaikan fieldnya
+                                                        alt={cat.name}
+                                                        className="object-cover w-full h-full"
+                                                    />
+                                                ) : (
+                                                    <span className="font-bold text-orange-600 transition-colors group-hover:text-white">
+                                                        {getCategoryInitials(
+                                                            cat.name,
+                                                        )}
+                                                    </span>
+                                                )}
                                             </div>
                                             <span className="text-sm font-medium text-gray-700 group-hover:text-orange-600">
                                                 {cat.name}
@@ -234,9 +260,9 @@ export default function Welcome({
                                     ))}
                                 </div>
                             ) : (
-                                <div className="p-8 text-center bg-white border border-dashed border-gray-300 rounded-xl">
-                                    <Store className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                                    <p className="text-gray-500 font-medium">
+                                <div className="p-8 text-center bg-white border border-gray-300 border-dashed rounded-xl">
+                                    <Store className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                    <p className="font-medium text-gray-500">
                                         Belum ada kategori yang ditambahkan oleh
                                         penjual.
                                     </p>
@@ -249,7 +275,7 @@ export default function Welcome({
 
             {/* --- 2. COMPACT HEADER --- */}
             {isFiltering && (
-                <div className="sticky top-16 z-10 px-4 py-4 bg-white border-b shadow-sm">
+                <div className="sticky z-10 px-4 py-4 bg-white border-b shadow-sm top-16">
                     <div className="flex flex-col items-center justify-between gap-4 mx-auto max-w-7xl md:flex-row">
                         <form
                             onSubmit={handleSearch}
@@ -321,7 +347,6 @@ export default function Welcome({
                     )}
                 </div>
 
-                {/* FIX BUG: Tampilan Produk Kosong */}
                 {products.length > 0 ? (
                     <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
                         {products.map((product) => {
@@ -353,7 +378,7 @@ export default function Welcome({
                                         {/* Overlay Gelap & Tulisan Habis di Tengah */}
                                         {isOutofStock && (
                                             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-10 flex items-center justify-center">
-                                                <span className="px-4 py-2 text-sm font-black tracking-wider text-white transform -rotate-12 bg-red-600 border-2 rounded-lg shadow-xl md:text-base border-white/20">
+                                                <span className="px-4 py-2 text-sm font-black tracking-wider text-white transform bg-red-600 border-2 rounded-lg shadow-xl -rotate-12 md:text-base border-white/20">
                                                     STOK HABIS
                                                 </span>
                                             </div>
@@ -393,7 +418,7 @@ export default function Welcome({
                                         >
                                             {product.name}
                                         </h3>
-                                        <div className="flex items-center justify-between pt-3 mt-auto z-20">
+                                        <div className="z-20 flex items-center justify-between pt-3 mt-auto">
                                             <span
                                                 className={`font-extrabold text-lg ${
                                                     isOutofStock
@@ -437,11 +462,11 @@ export default function Welcome({
                     </div>
                 ) : (
                     <div className="py-20 text-center bg-white border border-gray-200 shadow-sm rounded-2xl">
-                        <PackageX className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                        <PackageX className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                         <h3 className="text-lg font-bold text-gray-900">
                             Yahh, belum ada produk nih! 😕
                         </h3>
-                        <p className="mt-2 text-gray-500 max-w-md mx-auto">
+                        <p className="max-w-md mx-auto mt-2 text-gray-500">
                             {isFiltering
                                 ? "Produk yang kamu cari atau kategori ini belum tersedia. Coba kata kunci pencarian yang lain ya."
                                 : "Penjual belum menambahkan produk ke dalam katalog. Silakan kembali lagi nanti."}
@@ -450,7 +475,7 @@ export default function Welcome({
                             <Button
                                 onClick={clearFilters}
                                 variant="default"
-                                className="mt-6 bg-orange-600 hover:bg-orange-700 text-white font-bold"
+                                className="mt-6 font-bold text-white bg-orange-600 hover:bg-orange-700"
                             >
                                 <X className="w-4 h-4 mr-2" /> Hapus Pencarian &
                                 Filter

@@ -146,7 +146,7 @@ export default function CategoryIndex({ categories, filters }) {
             </div>
 
             {/* --- AREA FILTER PENCARIAN --- */}
-            <div className="flex flex-col sm:flex-row mb-4 bg-white p-4 rounded-md border items-center justify-start z-10 relative">
+            <div className="relative z-10 flex flex-col items-center justify-start p-4 mb-4 bg-white border rounded-md sm:flex-row">
                 {/* Search Bar */}
                 <div className="relative w-full sm:w-64">
                     <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -175,7 +175,10 @@ export default function CategoryIndex({ categories, filters }) {
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="name">Nama Kategori</Label>
+                            <Label htmlFor="name">
+                                Nama Kategori
+                                <span className="text-red-500">*</span>
+                            </Label>
                             <Input
                                 id="name"
                                 value={data.name}
@@ -192,7 +195,8 @@ export default function CategoryIndex({ categories, filters }) {
 
                         <div className="space-y-2">
                             <Label htmlFor="icon">
-                                Icon Kategori{" "}
+                                Icon Kategori
+                                <span className="text-red-500">*</span>
                                 {isEditing &&
                                     "(Biarkan kosong jika tidak diganti)"}
                             </Label>
@@ -249,7 +253,7 @@ export default function CategoryIndex({ categories, filters }) {
             </AlertDialog>
 
             {/* TABEL KATEGORI */}
-            <div className="bg-white border rounded-md mb-10 overflow-hidden">
+            <div className="mb-10 overflow-hidden bg-white border rounded-md">
                 <Table>
                     <TableHeader className="bg-gray-50">
                         <TableRow>
@@ -272,7 +276,7 @@ export default function CategoryIndex({ categories, filters }) {
                                             <img
                                                 src={`/storage/${category.icon}`}
                                                 alt={category.name}
-                                                className="object-cover w-10 h-10 rounded-md border"
+                                                className="object-cover w-10 h-10 border rounded-md"
                                             />
                                         ) : (
                                             <div className="flex items-center justify-center w-10 h-10 text-gray-400 bg-gray-100 rounded-md">
