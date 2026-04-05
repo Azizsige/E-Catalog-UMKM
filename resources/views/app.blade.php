@@ -10,6 +10,16 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
+        @php
+            // Ambil data toko secara global (kalau ada)
+            $store = \App\Models\Store::latest('updated_at')->first();
+            
+            // Cek kondisi: Kalau logo ada pakai itu, kalau null pakai favicon default
+            $favicon = $store && $store->logo ? asset('storage/' . $store->logo) : asset('favicon.ico');
+        @endphp
+
+        <link rel="icon" type="image/png" href="{{ $favicon }}">
+
         <!-- Scripts -->
         @routes
         @viteReactRefresh

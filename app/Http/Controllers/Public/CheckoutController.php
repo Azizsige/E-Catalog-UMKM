@@ -32,9 +32,9 @@ class CheckoutController extends Controller
     }
 
     // 2. PROSES CHECKOUT (GUEST)
-    // 2. PROSES CHECKOUT (GUEST)
     public function store(Request $request)
     {
+        // 1. Tambahin validasi buat delivery_type dan shipping_cost
         $request->validate([
             'recipient_name' => 'required|string|max:255',
             'phone_number'   => 'required|string|max:20',
@@ -42,6 +42,9 @@ class CheckoutController extends Controller
             'province'       => 'required|string',
             'city'           => 'required|string',
             'postal_code'    => 'required|string|max:10',
+            'courier'        => 'required|string',
+            'delivery_type'  => 'required|string', // <-- BARU
+            'shipping_cost'  => 'required|numeric|min:0', // <-- BARU
             'items'          => 'required|array|min:1', 
             'items.*.id'     => 'required|exists:products,id',
             'items.*.qty'    => 'required|integer|min:1',
@@ -51,13 +54,16 @@ class CheckoutController extends Controller
         try {
             $store = \App\Models\Store::latest('updated_at')->first();
 
+            // 2. Masukin delivery_type dan courier ke dalem snapshot
             $addressSnapshot = json_encode([
+                'delivery_type'  => $request->delivery_type, // "delivery" atau "pickup"
                 'recipient_name' => $request->recipient_name,
                 'phone_number'   => $request->phone_number,
                 'address_line'   => $request->address_line,
                 'province'       => $request->province,
                 'city'           => $request->city,
                 'postal_code'    => $request->postal_code,
+                'courier'        => $request->courier,
             ]);
 
             $totalPrice = 0;
@@ -69,45 +75,38 @@ class CheckoutController extends Controller
                     throw new \Exception("Stok produk '{$product->name}' tidak mencukupi.");
                 }
                 
-                // =======================================================
-                // 🔥 FIX PERHITUNGAN HARGA 🔥
-                // Ambil harga murni dari database, hiraukan format Rupiah
                 $rawPrice = $product->getRawOriginal('price') ?? $product->price;
-                
-                // Bersihkan dari titik/koma/huruf, paksa jadi Integer murni
                 $cleanPrice = (int) preg_replace('/[^0-9]/', '', (string) $rawPrice);
                 $qty = (int) $item['qty'];
                 
-                // Hitung subtotal dan masukkan ke keranjang total
                 $subtotal = $cleanPrice * $qty;
                 $totalPrice += $subtotal;
-                // =======================================================
 
                 $processedItems[] = [
                     'product' => $product,
                     'qty' => $qty,
-                    'price' => $cleanPrice // Simpan harga bersihnya
+                    'price' => $cleanPrice
                 ];
             }
             
-            $shippingCost = 15000; 
+            // 3. Ambil ongkir asli dari React (Nggak di-hardcode 15000 lagi)
+            $shippingCost = $request->shipping_cost; 
             
-            // Hitung Grand Total dari awal biar gak miss
             $grossAmount = $totalPrice + $shippingCost;
 
-            // Tentukan Metode Pembayaran berdasarkan settingan toko
             $paymentMethod = ($store->checkout_mode === 'midtrans') ? 'midtrans' : 'whatsapp';
 
             $transaction = Transaction::create([
                 'user_id'       => null, 
                 'store_id'      => $store->id,
                 'invoice_code'  => 'INV/' . date('Ymd') . '/' . Str::upper(Str::random(5)),
-                'total_price'   => $totalPrice, // Sekarang harganya pasti masuk!
+                'total_price'   => $totalPrice, 
                 'shipping_cost' => $shippingCost,
                 'shipping_address_snapshot' => $addressSnapshot,
                 'order_status'  => 'pending',
                 'payment_status'=> 'pending',
                 'payment_method'=> $paymentMethod, 
+                'courier_name'  => $request->courier, 
             ]);
 
             foreach ($processedItems as $data) {
@@ -115,13 +114,11 @@ class CheckoutController extends Controller
                     'transaction_id' => $transaction->id,
                     'product_id'     => $data['product']->id,
                     'qty'            => $data['qty'],
-                    'price_at_transaction' => $data['price'] // Pakai harga bersih
+                    'price_at_transaction' => $data['price'] 
                 ]);
                 
-                // Kurangi stok
                 $data['product']->decrement('stock', $data['qty']);
 
-                // Cek stok menipis
                 if ($data['product']->stock <= 5) {
                     $admin = User::find(1);
                     if ($admin) {
@@ -130,15 +127,14 @@ class CheckoutController extends Controller
                 }
             }
 
-            DB::commit(); // <-- Data 100% aman tersimpan di sini
+            DB::commit(); 
 
-            // Trigger Notifikasi Pesanan Baru
             $admin = User::find(1);
             if ($admin) {
                 $admin->notify(new NewOrderNotification($transaction));
             }
 
-            // --- CABANG LOGIC PEMBAYARAN ---
+            // --- LOGIC PEMBAYARAN MIDTRANS ---
             if ($paymentMethod === 'midtrans') {
                 Config::$serverKey = config('midtrans.server_key');
                 Config::$isProduction = config('midtrans.is_production');
@@ -148,7 +144,7 @@ class CheckoutController extends Controller
                 $midtransParams = [
                     'transaction_details' => [
                         'order_id' => $transaction->invoice_code . '-' . rand(100,999),
-                        'gross_amount' => $grossAmount, // <-- Kirim Grand Total ke Midtrans
+                        'gross_amount' => $grossAmount, 
                     ],
                     'customer_details' => [
                         'first_name' => $request->recipient_name,

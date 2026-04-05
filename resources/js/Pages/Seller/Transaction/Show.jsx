@@ -17,6 +17,7 @@ import {
     Printer,
     Box,
     Info,
+    Store, // Tambahan Icon
 } from "lucide-react";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
@@ -29,20 +30,17 @@ export default function TransactionShow({ transaction }) {
         action_type: "",
     });
 
-    // --- STATE CUSTOM TOAST ---
     const [toastMessage, setToastMessage] = useState(null);
 
-    // --- STATE CUSTOM MODAL CONFIRMATION ---
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
         title: "",
         message: "",
-        actionType: "", // 'confirm_payment' | 'send_order' | 'cancel' | 'complete'
+        actionType: "",
         icon: null,
         confirmColor: "bg-primary",
     });
 
-    // Efek Toast
     useEffect(() => {
         if (toastMessage) {
             const timer = setTimeout(() => {
@@ -56,7 +54,6 @@ export default function TransactionShow({ transaction }) {
         setToastMessage({ type, text });
     };
 
-    // Buka Modal Konfirmasi
     const openConfirmModal = (
         title,
         message,
@@ -74,12 +71,11 @@ export default function TransactionShow({ transaction }) {
         });
     };
 
-    // Tutup Modal
     const closeConfirmModal = () => {
         setConfirmModal({ ...confirmModal, isOpen: false });
     };
 
-    // --- 1. PARSING ALAMAT ---
+    // --- 1. PARSING ALAMAT & CEK TIPE PENGIRIMAN ---
     let shippingInfo = null;
     try {
         if (transaction.shipping_address_snapshot) {
@@ -92,8 +88,9 @@ export default function TransactionShow({ transaction }) {
     const buyerName = shippingInfo?.recipient_name || transaction.user?.name;
     const buyerPhone =
         shippingInfo?.phone_number || transaction.user?.phone || "-";
+    const isPickup = shippingInfo?.delivery_type === "pickup"; // <-- INI LOGIC PENENTUNYA
 
-    // --- 2. EXECUTE ACTION DARI MODAL ---
+    // --- 2. EXECUTE ACTION ---
     const executeAction = () => {
         const { actionType } = confirmModal;
 
@@ -106,7 +103,7 @@ export default function TransactionShow({ transaction }) {
                     onSuccess: () =>
                         showToast(
                             "success",
-                            "Pembayaran dikonfirmasi! Silakan kemas barang.",
+                            "Pembayaran dikonfirmasi! Silakan siapkan barang.",
                         ),
                     onError: () =>
                         showToast("error", "Gagal mengkonfirmasi pembayaran."),
@@ -115,18 +112,24 @@ export default function TransactionShow({ transaction }) {
         } else if (actionType === "send_order") {
             router.put(
                 route("admin.transactions.update", transaction.id),
-                { action_type: "input_resi", resi_number: resiInput },
+                // Kalau pickup, otomatis isi resi "AMBIL DI TOKO"
+                {
+                    action_type: "input_resi",
+                    resi_number: isPickup ? "AMBIL DI TOKO" : resiInput,
+                },
                 {
                     preserveScroll: true,
                     onSuccess: () =>
                         showToast(
                             "success",
-                            "Pesanan berhasil diupdate menjadi Sedang Dikirim.",
+                            isPickup
+                                ? "Pesanan siap diambil!"
+                                : "Pesanan berhasil diupdate menjadi Sedang Dikirim.",
                         ),
                     onError: () =>
                         showToast(
                             "error",
-                            "Gagal memperbarui resi pengiriman.",
+                            "Gagal memperbarui status pengiriman.",
                         ),
                 },
             );
@@ -155,31 +158,42 @@ export default function TransactionShow({ transaction }) {
         closeConfirmModal();
     };
 
-    // --- TRIGGER TOMBOL (Panggil Modal) ---
+    // --- TRIGGER TOMBOL ---
     const handleConfirmPayment = () => {
         openConfirmModal(
             "Terima Pesanan?",
-            "Pastikan pembayaran sudah benar-benar masuk ke rekening Anda. Lanjut proses pesanan?",
+            "Pastikan pembayaran sudah benar-benar masuk. Lanjut proses pesanan?",
             "confirm_payment",
-            <CheckCircle className="w-10 h-10 text-green-600 mx-auto mb-4" />,
+            <CheckCircle className="w-10 h-10 mx-auto mb-4 text-green-600" />,
             "bg-green-600 hover:bg-green-700",
         );
     };
 
     const handleSendOrder = () => {
-        if (!resiInput.trim()) {
+        if (!isPickup && !resiInput.trim()) {
             return showToast(
                 "warning",
                 "Wajib mengisi Nomor Resi atau Keterangan Pengiriman!",
             );
         }
-        openConfirmModal(
-            "Konfirmasi Pengiriman",
-            "Apakah barang sudah diserahkan ke kurir atau diambil oleh pembeli?",
-            "send_order",
-            <Truck className="w-10 h-10 text-blue-600 mx-auto mb-4" />,
-            "bg-blue-600 hover:bg-blue-700",
-        );
+
+        if (isPickup) {
+            openConfirmModal(
+                "Barang Siap Diambil?",
+                "Notifikasi akan muncul di halaman pembeli bahwa barang sudah bisa diambil di toko.",
+                "send_order",
+                <Store className="w-10 h-10 mx-auto mb-4 text-blue-600" />,
+                "bg-blue-600 hover:bg-blue-700",
+            );
+        } else {
+            openConfirmModal(
+                "Konfirmasi Pengiriman",
+                "Apakah barang sudah diserahkan ke kurir ekspedisi?",
+                "send_order",
+                <Truck className="w-10 h-10 mx-auto mb-4 text-blue-600" />,
+                "bg-blue-600 hover:bg-blue-700",
+            );
+        }
     };
 
     const handleCancelOrder = () => {
@@ -187,7 +201,7 @@ export default function TransactionShow({ transaction }) {
             "Batalkan Pesanan?",
             "Yakin ingin membatalkan pesanan ini? Stok produk akan dikembalikan secara otomatis.",
             "cancel",
-            <XCircle className="w-10 h-10 text-red-600 mx-auto mb-4" />,
+            <XCircle className="w-10 h-10 mx-auto mb-4 text-red-600" />,
             "bg-red-600 hover:bg-red-700",
         );
     };
@@ -195,9 +209,11 @@ export default function TransactionShow({ transaction }) {
     const handleCompleteOrder = () => {
         openConfirmModal(
             "Selesaikan Pesanan?",
-            "Ubah status pesanan menjadi Selesai? Pastikan pembeli sudah menerima barang dengan baik.",
+            isPickup
+                ? "Ubah status menjadi Selesai? Pastikan pembeli sudah mengambil barang di toko."
+                : "Ubah status pesanan menjadi Selesai? Pastikan pembeli sudah menerima barang dengan baik.",
             "complete",
-            <CheckCircle2 className="w-10 h-10 text-purple-600 mx-auto mb-4" />,
+            <CheckCircle2 className="w-10 h-10 mx-auto mb-4 text-purple-600" />,
             "bg-purple-600 hover:bg-purple-700",
         );
     };
@@ -212,10 +228,12 @@ export default function TransactionShow({ transaction }) {
 
     const getStatusBadge = (orderStatus, paymentStatus) => {
         const styles = {
-            unpaid: "bg-amber-100 text-amber-700 border-amber-200", // Belum bayar
-            waiting_process: "bg-blue-100 text-blue-700 border-blue-200", // Lunas, nunggu di-klik Terima Pesanan
-            processing: "bg-indigo-100 text-indigo-700 border-indigo-200", // Lagi dikemas
-            shipped: "bg-purple-100 text-purple-700 border-purple-200",
+            unpaid: "bg-amber-100 text-amber-700 border-amber-200",
+            waiting_process: "bg-blue-100 text-blue-700 border-blue-200",
+            processing: "bg-indigo-100 text-indigo-700 border-indigo-200",
+            shipped: isPickup
+                ? "bg-teal-100 text-teal-700 border-teal-200"
+                : "bg-purple-100 text-purple-700 border-purple-200",
             completed: "bg-green-100 text-green-700 border-green-200",
             cancelled: "bg-red-100 text-red-700 border-red-200",
         };
@@ -224,12 +242,11 @@ export default function TransactionShow({ transaction }) {
             unpaid: "Belum Dibayar",
             waiting_process: "Menunggu Diproses",
             processing: "Sedang Dikemas",
-            shipped: "Sedang Dikirim",
+            shipped: isPickup ? "Siap Diambil" : "Sedang Dikirim",
             completed: "Selesai",
             cancelled: "Dibatalkan",
         };
 
-        // Tentukan state aslinya berdasarkan gabungan order & payment
         let currentState = orderStatus;
         if (orderStatus === "pending") {
             currentState =
@@ -277,7 +294,6 @@ export default function TransactionShow({ transaction }) {
                             disabled={processing}
                         >
                             <CheckCircle className="w-4 h-4 mr-2" /> Terima
-                            Pesanan
                         </Button>
                     </div>
                 </div>
@@ -285,21 +301,52 @@ export default function TransactionShow({ transaction }) {
         }
 
         if (status === "processing") {
+            // UI Khusus jika PICKUP
+            if (isPickup) {
+                return (
+                    <div className="p-5 border border-blue-200 bg-blue-50 rounded-xl">
+                        <h3 className="flex items-center gap-2 mb-2 font-bold text-blue-800">
+                            <Box className="w-5 h-5" /> Siapkan Barang
+                        </h3>
+                        <p className="mb-4 text-sm leading-relaxed text-blue-700">
+                            Pembeli memilih untuk{" "}
+                            <strong>mengambil pesanan sendiri ke toko</strong>.
+                            Klik tombol di bawah jika barang sudah disiapkan
+                            agar pembeli mendapat notifikasi.
+                        </p>
+                        <Button
+                            className="w-full font-bold bg-blue-600 hover:bg-blue-700"
+                            onClick={handleSendOrder}
+                            disabled={processing}
+                        >
+                            <Store className="w-4 h-4 mr-2" /> Tandai Siap
+                            Diambil
+                        </Button>
+                    </div>
+                );
+            }
+
+            // UI Normal (Dikirim)
             return (
                 <div className="p-5 border border-blue-200 bg-blue-50 rounded-xl">
                     <h3 className="flex items-center gap-2 mb-2 font-bold text-blue-800">
                         <Box className="w-5 h-5" /> Kemas & Kirim Pesanan
                     </h3>
-                    <p className="mb-4 text-sm text-blue-700">
+                    <p className="mb-4 text-sm leading-relaxed text-blue-700">
                         Segera kemas barang dan serahkan ke kurir. Masukkan
                         nomor resi pengiriman di bawah ini.
-                        <br />
-                        <span className="text-xs italic opacity-80">
-                            (Ketik "DIAMBIL SENDIRI" jika pembeli mengambil ke
-                            toko)
-                        </span>
                     </p>
                     <div className="space-y-3">
+                        <div className="p-3 mb-2 bg-white border border-blue-100 rounded-lg">
+                            <span className="block mb-1 text-xs font-bold text-gray-500 uppercase">
+                                Kurir Pilihan Pembeli:
+                            </span>
+                            <span className="font-bold text-blue-800 uppercase">
+                                {shippingInfo?.courier ||
+                                    transaction.courier_name ||
+                                    "Reguler / Kurir Toko"}
+                            </span>
+                        </div>
                         <div>
                             <Label className="block mb-1 font-bold text-blue-900">
                                 Nomor Resi Pengiriman
@@ -325,17 +372,42 @@ export default function TransactionShow({ transaction }) {
         }
 
         if (status === "shipped") {
+            // UI Khusus jika PICKUP
+            if (isPickup) {
+                return (
+                    <div className="p-5 border border-teal-200 bg-teal-50 rounded-xl">
+                        <h3 className="flex items-center gap-2 mb-2 font-bold text-teal-800">
+                            <Store className="w-5 h-5" /> Menunggu Diambil
+                        </h3>
+                        <p className="mb-4 text-sm leading-relaxed text-teal-700">
+                            Barang sudah disiapkan. Menunggu pembeli datang ke
+                            toko untuk mengambil pesanannya.
+                        </p>
+                        <Button
+                            variant="outline"
+                            className="w-full font-bold text-teal-700 border-teal-200 hover:bg-teal-100"
+                            onClick={handleCompleteOrder}
+                            disabled={processing}
+                        >
+                            <CheckCircle className="w-4 h-4 mr-2" /> Pesanan
+                            Sudah Diambil
+                        </Button>
+                    </div>
+                );
+            }
+
+            // UI Normal (Dikirim)
             return (
                 <div className="p-5 border border-purple-200 bg-purple-50 rounded-xl">
                     <h3 className="flex items-center gap-2 mb-2 font-bold text-purple-800">
                         <Truck className="w-5 h-5" /> Sedang Dikirim
                     </h3>
-                    <div className="flex items-center justify-between p-3 mb-4 bg-white border border-purple-100 shadow-sm rounded-lg">
+                    <div className="flex items-center justify-between p-3 mb-4 bg-white border border-purple-100 rounded-lg shadow-sm">
                         <div>
                             <p className="text-xs font-bold text-purple-500 uppercase">
-                                No. Resi / Keterangan
+                                No. Resi
                             </p>
-                            <p className="text-lg font-bold tracking-wide font-mono text-gray-800">
+                            <p className="font-mono text-lg font-bold tracking-wide text-gray-800">
                                 {transaction.resi_number}
                             </p>
                         </div>
@@ -360,8 +432,8 @@ export default function TransactionShow({ transaction }) {
                         <p className="text-xs leading-relaxed text-center text-purple-600">
                             Menunggu barang sampai ke tangan pembeli.
                             <br />
-                            Anda bisa menyelesaikan transaksi ini secara manual
-                            jika dipastikan barang sudah diterima.
+                            Selesaikan transaksi ini manual jika barang sudah
+                            diterima.
                         </p>
                         <Button
                             variant="outline"
@@ -387,7 +459,9 @@ export default function TransactionShow({ transaction }) {
                         Transaksi Selesai
                     </h3>
                     <p className="text-sm text-green-600">
-                        Pesanan telah diterima oleh pembeli dengan baik.
+                        {isPickup
+                            ? "Pesanan telah selesai diambil di toko."
+                            : "Pesanan telah diterima oleh pembeli dengan baik."}
                     </p>
                 </div>
             );
@@ -439,14 +513,14 @@ export default function TransactionShow({ transaction }) {
             {/* --- CUSTOM CONFIRM MODAL --- */}
             {confirmModal.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center transform transition-all">
+                    <div className="w-full max-w-sm p-6 overflow-hidden text-center transition-all transform bg-white shadow-2xl rounded-2xl">
                         {confirmModal.icon || (
-                            <Info className="w-10 h-10 text-blue-600 mx-auto mb-4" />
+                            <Info className="w-10 h-10 mx-auto mb-4 text-blue-600" />
                         )}
-                        <h3 className="text-lg font-bold mb-2 text-gray-900">
+                        <h3 className="mb-2 text-lg font-bold text-gray-900">
                             {confirmModal.title}
                         </h3>
-                        <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+                        <p className="mb-6 text-sm leading-relaxed text-gray-500">
                             {confirmModal.message}
                         </p>
                         <div className="flex gap-3">
@@ -501,7 +575,7 @@ export default function TransactionShow({ transaction }) {
                                     className="mt-2 text-blue-700 border-blue-200 hover:bg-blue-50"
                                 >
                                     <Printer className="w-4 h-4 mr-2" /> Cetak
-                                    Label
+                                    Bukti Pesanan
                                 </Button>
                             </a>
                             <p className="mt-2 text-sm text-muted-foreground">
@@ -530,7 +604,7 @@ export default function TransactionShow({ transaction }) {
                                 Rincian Pesanan
                             </div>
                             <div className="divide-y">
-                                {transaction.details?.map((item, index) => (
+                                {transaction.details?.map((item) => (
                                     <div
                                         key={item.id}
                                         className="flex gap-4 p-4"
@@ -579,7 +653,11 @@ export default function TransactionShow({ transaction }) {
                                     </span>
                                 </div>
                                 <div className="flex justify-between pb-3 text-sm text-gray-600 border-b">
-                                    <span>Ongkos Kirim</span>
+                                    <span>
+                                        {isPickup
+                                            ? "Biaya Penanganan"
+                                            : "Ongkos Kirim"}
+                                    </span>
                                     <span>
                                         {formatRupiah(
                                             transaction.shipping_cost,
@@ -641,7 +719,8 @@ export default function TransactionShow({ transaction }) {
                             <div className="p-5 bg-white border shadow-sm rounded-xl">
                                 <h4 className="flex items-center gap-2 pb-2 mb-4 font-bold text-gray-800 border-b">
                                     <MapPin className="w-4 h-4 text-red-500" />{" "}
-                                    Detail Pengiriman
+                                    Detail{" "}
+                                    {isPickup ? "Pengambilan" : "Pengiriman"}
                                 </h4>
                                 {shippingInfo ? (
                                     <div className="space-y-2 text-sm text-gray-700">
@@ -649,12 +728,32 @@ export default function TransactionShow({ transaction }) {
                                             {shippingInfo.recipient_name}
                                         </p>
                                         <p className="leading-relaxed">
-                                            {shippingInfo.address_line}
+                                            {isPickup ? (
+                                                <span className="inline-block px-2 py-1 mt-1 text-xs font-bold text-blue-700 bg-blue-100 rounded-md">
+                                                    DIAMBIL SENDIRI KE TOKO
+                                                </span>
+                                            ) : (
+                                                <>
+                                                    {shippingInfo.address_line}
+                                                    <br />
+                                                    {shippingInfo.city},{" "}
+                                                    {shippingInfo.postal_code}
+                                                </>
+                                            )}
                                         </p>
-                                        <p>
-                                            {shippingInfo.city},{" "}
-                                            {shippingInfo.postal_code}
-                                        </p>
+
+                                        {/* INFO KURIR */}
+                                        {!isPickup && (
+                                            <div className="pt-3 mt-3 border-t">
+                                                <p className="mb-1 text-xs font-bold text-gray-500 uppercase">
+                                                    Kurir Pilihan Pembeli
+                                                </p>
+                                                <p className="font-bold text-blue-700 uppercase">
+                                                    {shippingInfo.courier ||
+                                                        transaction.courier_name}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <p className="text-sm italic text-gray-500">

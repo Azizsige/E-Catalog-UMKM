@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, usePage, router } from "@inertiajs/react";
+import { Head, Link, usePage, router } from "@inertiajs/react";
 import { Button } from "@/Components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/Components/ui/sheet";
 import {
@@ -231,6 +231,17 @@ export default function SellerLayout({ children }) {
 
     return (
         <div className="flex w-full min-h-screen bg-muted/40">
+            <Head>
+                <link
+                    rel="icon"
+                    type="image/png"
+                    href={
+                        auth?.user?.store?.logo
+                            ? `/storage/${auth.user.store.logo}`
+                            : "/favicon.ico"
+                    }
+                />
+            </Head>
             {/* SIDEBAR DESKTOP */}
             <aside
                 className={cn(
