@@ -14,22 +14,35 @@ import {
 export default function StoreEdit({ store }) {
     const safeStore = store || {};
 
-    const { data, setData, post, processing, errors } = useForm({
+    // --- FIX BUG 1: Tambahkan 'transform' dari useForm ---
+    const { data, setData, post, processing, errors, transform } = useForm({
         name: safeStore.name || "",
         bank_name: safeStore.bank_name || "",
         bank_account: safeStore.bank_account || "",
         description: safeStore.description || "",
         phone_number: safeStore.phone_number || "",
         address: safeStore.address || "",
-        checkout_mode: safeStore.checkout_mode || "midtrans", // <--- 1. STATE BARU
+        checkout_mode: safeStore.checkout_mode || "midtrans",
         logo: null,
         banner: null,
-        _method: "POST", // Untuk handle file upload via PUT/PATCH di Laravel
+        _method: "POST", // --- FIX BUG 2: Method spoofing harus PUT/PATCH kalau mau update data di Laravel
     });
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route("admin.store.update"));
+
+        // --- FIX BUG 3: Hapus data logo/banner dari request jika tidak ada file baru yg diupload ---
+        // Biar backend Laravel nggak nge-replace gambar di database jadi NULL
+        transform((data) => {
+            const payload = { ...data };
+            if (!payload.logo) delete payload.logo;
+            if (!payload.banner) delete payload.banner;
+            return payload;
+        });
+
+        post(route("admin.store.update"), {
+            preserveScroll: true, // Biar pas disave halamannya nggak loncat ke atas
+        });
     };
 
     return (
@@ -53,7 +66,7 @@ export default function StoreEdit({ store }) {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* BAGIAN 1: METODE CHECKOUT (FITUR BARU) */}
+                    {/* BAGIAN 1: METODE CHECKOUT */}
                     <div className="p-6 space-y-4 bg-white border shadow-sm rounded-xl">
                         <h3 className="flex items-center gap-2 pb-2 text-lg font-semibold border-b">
                             <CreditCard className="w-5 h-5 text-gray-500" />
@@ -120,6 +133,7 @@ export default function StoreEdit({ store }) {
                         )}
                     </div>
 
+                    {/* SETTINGAN KHUSUS WHATSAPP */}
                     {data.checkout_mode === "whatsapp" && (
                         <div className="p-6 space-y-4 duration-300 border border-blue-200 shadow-sm bg-blue-50 rounded-xl animate-in fade-in slide-in-from-top-2">
                             <h3 className="flex items-center gap-2 pb-2 text-lg font-semibold text-blue-900 border-b border-blue-200">
@@ -184,7 +198,7 @@ export default function StoreEdit({ store }) {
                         </div>
                     )}
 
-                    {/* BAGIAN 2: BRANDING (Banner & Logo) - KODE LAMA */}
+                    {/* BAGIAN 2: BRANDING (Banner & Logo) */}
                     <div className="p-6 space-y-6 bg-white border shadow-sm rounded-xl">
                         <h3 className="flex items-center gap-2 pb-2 text-lg font-semibold border-b">
                             <ImageIcon className="w-5 h-5 text-gray-500" />
@@ -241,7 +255,7 @@ export default function StoreEdit({ store }) {
                                         accept="image/*"
                                     />
                                     {errors.logo && (
-                                        <p className="mt-1 text-sm text-red-500">
+                                        <p className="text-sm text-red-500">
                                             {errors.logo}
                                         </p>
                                     )}
@@ -250,7 +264,7 @@ export default function StoreEdit({ store }) {
                         </div>
                     </div>
 
-                    {/* BAGIAN 3: INFORMASI DASAR - KODE LAMA + SEDIKIT LOGIC WA */}
+                    {/* BAGIAN 3: INFORMASI DASAR */}
                     <div className="p-6 space-y-6 bg-white border shadow-sm rounded-xl">
                         <h3 className="pb-2 text-lg font-semibold border-b">
                             Informasi Toko

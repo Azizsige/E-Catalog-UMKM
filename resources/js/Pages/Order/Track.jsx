@@ -11,7 +11,9 @@ import {
     CreditCard,
     ChevronLeft,
     AlertTriangle,
-    Send, // <--- INI GW TAMBAHIN BIAR GAK ERROR
+    Send,
+    Copy,
+    Store, // <--- TAMBAHAN: Icon Store buat Pickup
 } from "lucide-react";
 
 export default function TrackOrder({
@@ -20,11 +22,11 @@ export default function TrackOrder({
     midtransClientKey,
 }) {
     const [isPaymentLoading, setIsPaymentLoading] = useState(false);
-
-    // --- STATE UNTUK CUSTOM TOAST ---
     const [toastMessage, setToastMessage] = useState(null);
 
-    // Efek untuk menghilangkan toast otomatis setelah 4 detik
+    // --- LOGIC: CEK APAKAH INI PICKUP ---
+    const isPickup = address?.delivery_type === "pickup";
+
     useEffect(() => {
         if (toastMessage) {
             const timer = setTimeout(() => {
@@ -34,19 +36,17 @@ export default function TrackOrder({
         }
     }, [toastMessage]);
 
-    // Fungsi pembantu untuk memanggil toast
     const showToast = (type, text) => {
         setToastMessage({ type, text });
     };
 
-    // --- 1. SCRIPT MIDTRANS ---
     useEffect(() => {
         if (
             transaction.payment_method === "midtrans" &&
             transaction.payment_status === "pending"
         ) {
             const script = document.createElement("script");
-            script.src = "https://app.sandbox.midtrans.com/snap/snap.js"; // Ganti kalau production
+            script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
             script.setAttribute("data-client-key", midtransClientKey);
             document.body.appendChild(script);
         }
@@ -56,7 +56,6 @@ export default function TrackOrder({
         midtransClientKey,
     ]);
 
-    // --- 2. FORMAT RUPIAH ---
     const formatRupiah = (number) => {
         return new Intl.NumberFormat("id-ID", {
             style: "currency",
@@ -65,10 +64,8 @@ export default function TrackOrder({
         }).format(number);
     };
 
-    // --- 3. BADGE STATUS PESANAN ---
-    // --- 3. BADGE STATUS PESANAN (UPDATE LOGIC) ---
+    // --- BADGE STATUS PESANAN (DINAMIS PICKUP/DELIVERY) ---
     const getOrderStatusBadge = (orderStatus, paymentStatus) => {
-        // Kalau udah diproses, dikirim, selesai, atau batal, langsung tampilin aja
         if (orderStatus === "processing") {
             return (
                 <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-blue-600 rounded-full bg-blue-50">
@@ -78,8 +75,18 @@ export default function TrackOrder({
         }
         if (orderStatus === "shipped") {
             return (
-                <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-purple-600 rounded-full bg-purple-50">
-                    <Truck size={16} /> Dikirim
+                <span
+                    className={`flex items-center gap-1 px-3 py-1 text-sm font-bold rounded-full ${isPickup ? "text-teal-600 bg-teal-50" : "text-purple-600 bg-purple-50"}`}
+                >
+                    {isPickup ? (
+                        <>
+                            <Store size={16} /> Siap Diambil
+                        </>
+                    ) : (
+                        <>
+                            <Truck size={16} /> Dikirim
+                        </>
+                    )}
                 </span>
             );
         }
@@ -98,19 +105,16 @@ export default function TrackOrder({
             );
         }
 
-        // --- NAH INI LOGIKANYA KALAU MASIH PENDING ---
         if (orderStatus === "pending") {
             if (paymentStatus === "paid") {
-                // Uang udah masuk, nunggu admin klik proses
                 return (
                     <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-blue-600 rounded-full bg-blue-50">
                         <Clock size={16} /> Menunggu Diproses
                     </span>
                 );
             } else {
-                // Uang belum masuk
                 return (
-                    <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold text-amber-600 rounded-full bg-amber-50">
+                    <span className="flex items-center gap-1 px-3 py-1 text-sm font-bold rounded-full text-amber-600 bg-amber-50">
                         <Clock size={16} /> Menunggu Pembayaran
                     </span>
                 );
@@ -119,21 +123,18 @@ export default function TrackOrder({
         return null;
     };
 
-    // --- 4. LANJUTKAN PEMBAYARAN (MIDTRANS) ---
     const handleContinuePayment = () => {
         if (transaction.snap_token && window.snap) {
             setIsPaymentLoading(true);
             window.snap.pay(transaction.snap_token, {
                 onSuccess: function (result) {
-                    window.onbeforeunload = null; // Matikan alert
+                    window.onbeforeunload = null;
                     showToast("success", "Pembayaran Berhasil diproses!");
-                    // Refresh halaman untuk update status
                     setTimeout(() => window.location.reload(), 1000);
                 },
                 onPending: function (result) {
-                    window.onbeforeunload = null; // Matikan alert
+                    window.onbeforeunload = null;
                     showToast("warning", "Menyimpan status pembayaran...");
-                    // Refresh halaman untuk update instruksi
                     setTimeout(() => window.location.reload(), 1000);
                 },
                 onError: function (result) {
@@ -165,7 +166,7 @@ export default function TrackOrder({
 
             {/* --- CUSTOM TOAST COMPONENT --- */}
             {toastMessage && (
-                <div className="fixed z-50 -translate-x-1/2 top-24 left-1/2 animate-in slide-in-from-top-5 fade-in duration-300">
+                <div className="fixed z-50 duration-300 -translate-x-1/2 top-24 left-1/2 animate-in slide-in-from-top-5 fade-in">
                     <div
                         className={`flex items-center gap-3 px-6 py-3 rounded-full shadow-xl border font-medium text-sm
                         ${toastMessage.type === "success" ? "bg-green-50 border-green-200 text-green-800" : ""}
@@ -183,9 +184,7 @@ export default function TrackOrder({
                         {toastMessage.type === "warning" && (
                             <AlertTriangle className="w-5 h-5 text-amber-600" />
                         )}
-
                         <p>{toastMessage.text}</p>
-
                         <button
                             onClick={() => setToastMessage(null)}
                             className="ml-2 opacity-50 hover:opacity-100"
@@ -197,7 +196,6 @@ export default function TrackOrder({
             )}
 
             <div className="max-w-4xl px-4 py-8 mx-auto">
-                {/* Tombol Back */}
                 <Link
                     href="/"
                     className="inline-flex items-center gap-2 mb-6 font-medium text-gray-500 transition-colors hover:text-orange-600"
@@ -278,14 +276,12 @@ export default function TrackOrder({
                                             Silakan transfer tepat sesuai total
                                             tagihan ke rekening berikut:
                                         </p>
-                                        <div className="inline-block p-4 mb-2 bg-white border border-blue-100 shadow-sm rounded-lg">
+                                        <div className="inline-block p-4 mb-2 bg-white border border-blue-100 rounded-lg shadow-sm">
                                             <p className="text-xs font-bold text-gray-500 uppercase">
-                                                {/* --- PERBAIKAN DI SINI --- */}
                                                 {transaction.store?.bank_name ||
                                                     "Bank Toko"}
                                             </p>
                                             <p className="font-mono text-xl font-bold tracking-wider text-gray-900">
-                                                {/* --- PERBAIKAN DI SINI --- */}
                                                 {transaction.store
                                                     ?.bank_account ||
                                                     "Nomor Rekening"}
@@ -307,21 +303,11 @@ export default function TrackOrder({
                                                 parseFloat(
                                                     transaction.shipping_cost,
                                                 );
-                                            // --- PERBAIKAN DI SINI ---
-                                            const waPesan = `Halo kak, saya mau konfirmasi pesanan:
-*${transaction.invoice_code}*
-
-👤 Nama: ${address?.recipient_name}
-💰 Total Tagihan: *${formatRupiah(totalBill)}*
-
-Saya akan segera melakukan pembayaran ke rekening:
-🏦 ${transaction.store?.bank_name} - ${transaction.store?.bank_account}
-
-Mohon tunggu bukti transfernya ya. Terima kasih! 🙏`;
+                                            const waPesan = `Halo kak, saya mau konfirmasi pesanan:\n*${transaction.invoice_code}*\n\n👤 Nama: ${address?.recipient_name}\n💰 Total Tagihan: *${formatRupiah(totalBill)}*\n\nSaya akan segera melakukan pembayaran ke rekening:\n🏦 ${transaction.store?.bank_name} - ${transaction.store?.bank_account}\n\nMohon tunggu bukti transfernya ya. Terima kasih! 🙏`;
                                             const waUrl = `https://wa.me/${transaction.store?.phone_number}?text=${encodeURIComponent(waPesan)}`;
                                             window.open(waUrl, "_blank");
                                         }}
-                                        className="w-full h-14 px-6 font-bold text-white transition-all bg-green-600 shadow-md md:w-auto hover:bg-green-700 rounded-xl"
+                                        className="w-full px-6 font-bold text-white transition-all bg-green-600 shadow-md h-14 md:w-auto hover:bg-green-700 rounded-xl"
                                     >
                                         <Send size={18} className="mr-2" />{" "}
                                         Konfirmasi ke WhatsApp
@@ -333,7 +319,9 @@ Mohon tunggu bukti transfernya ya. Terima kasih! 🙏`;
                             {/* INFO PENERIMA */}
                             <div>
                                 <h3 className="pb-2 mb-3 font-bold text-gray-900 border-b">
-                                    Informasi Pengiriman
+                                    {isPickup
+                                        ? "Informasi Pengambilan"
+                                        : "Informasi Pengiriman"}
                                 </h3>
                                 <p className="font-semibold text-gray-800">
                                     {address?.recipient_name}
@@ -341,11 +329,119 @@ Mohon tunggu bukti transfernya ya. Terima kasih! 🙏`;
                                 <p className="mt-1 text-sm text-gray-600">
                                     {address?.phone_number}
                                 </p>
-                                <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                                    {address?.address_line}
-                                    <br />
-                                    {address?.city}, {address?.postal_code}
-                                </p>
+
+                                {/* Kalau dikirim, tampilkan alamat */}
+                                {!isPickup && (
+                                    <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                                        {address?.address_line}
+                                        <br />
+                                        {address?.city}, {address?.postal_code}
+                                    </p>
+                                )}
+
+                                {/* --- BLOK RESI PENGIRIMAN ATAU INSTRUKSI PICKUP --- */}
+                                <div className="p-4 mt-5 border border-orange-100 rounded-xl bg-orange-50/50">
+                                    {isPickup ? (
+                                        <>
+                                            <p className="mb-1 text-xs font-bold text-gray-500 uppercase">
+                                                Metode Pengiriman
+                                            </p>
+                                            <p className="mb-4 text-sm font-bold text-gray-900 uppercase">
+                                                Ambil Sendiri di Toko
+                                            </p>
+                                            {transaction.order_status ===
+                                                "shipped" ||
+                                            transaction.order_status ===
+                                                "completed" ? (
+                                                <div className="p-3 bg-white border border-green-200 rounded-lg shadow-sm">
+                                                    <p className="flex items-center gap-2 text-sm font-bold text-green-600">
+                                                        <CheckCircle2 className="w-5 h-5" />{" "}
+                                                        Pesanan Siap Diambil!
+                                                    </p>
+                                                    <p className="mt-2 text-xs leading-relaxed text-gray-500">
+                                                        Silakan tunjukkan
+                                                        halaman invoice ini
+                                                        kepada kasir/admin toko
+                                                        saat mengambil pesanan
+                                                        Anda.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <p className="flex items-center gap-2 text-sm italic text-gray-500">
+                                                    {transaction.order_status ===
+                                                        "pending" ||
+                                                    transaction.order_status ===
+                                                        "processing" ? (
+                                                        <>
+                                                            <Clock className="w-4 h-4" />{" "}
+                                                            Menunggu pesanan
+                                                            disiapkan...
+                                                        </>
+                                                    ) : (
+                                                        ""
+                                                    )}
+                                                </p>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="mb-1 text-xs font-bold text-gray-500 uppercase">
+                                                Kurir Pengiriman
+                                            </p>
+                                            <p className="mb-3 text-sm font-bold text-gray-900 uppercase">
+                                                {address?.courier ||
+                                                    "Kurir Reguler"}
+                                            </p>
+
+                                            <p className="mb-1 text-xs font-bold text-gray-500 uppercase">
+                                                Nomor Resi
+                                            </p>
+                                            {(transaction.order_status ===
+                                                "shipped" ||
+                                                transaction.order_status ===
+                                                    "completed") &&
+                                            transaction.resi_number ? (
+                                                <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                                    <span className="font-mono text-base font-black tracking-wider text-orange-600">
+                                                        {
+                                                            transaction.resi_number
+                                                        }
+                                                    </span>
+                                                    <button
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(
+                                                                transaction.resi_number,
+                                                            );
+                                                            showToast(
+                                                                "success",
+                                                                "Nomor resi berhasil disalin!",
+                                                            );
+                                                        }}
+                                                        className="flex items-center gap-1 px-2 py-1 text-xs font-bold text-blue-600 transition-colors rounded bg-blue-50 hover:text-blue-800 hover:bg-blue-100"
+                                                    >
+                                                        <Copy className="w-3 h-3" />{" "}
+                                                        Salin
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <p className="flex items-center gap-2 text-sm italic text-gray-500">
+                                                    {transaction.order_status ===
+                                                        "pending" ||
+                                                    transaction.order_status ===
+                                                        "processing" ? (
+                                                        <>
+                                                            <Clock className="w-4 h-4" />{" "}
+                                                            Menunggu barang
+                                                            dikirim...
+                                                        </>
+                                                    ) : (
+                                                        "Belum ada resi."
+                                                    )}
+                                                </p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
                             </div>
 
                             {/* INFO PEMBAYARAN */}
@@ -353,7 +449,7 @@ Mohon tunggu bukti transfernya ya. Terima kasih! 🙏`;
                                 <h3 className="pb-2 mb-3 font-bold text-gray-900 border-b">
                                     Metode Pembayaran
                                 </h3>
-                                <p className="text-sm capitalize text-gray-600">
+                                <p className="text-sm text-gray-600 capitalize">
                                     {transaction.payment_method === "midtrans"
                                         ? "Transfer / E-Wallet (Otomatis)"
                                         : "Manual via WhatsApp"}
@@ -428,7 +524,11 @@ Mohon tunggu bukti transfernya ya. Terima kasih! 🙏`;
                                 </span>
                             </div>
                             <div className="flex justify-between pb-3 text-sm text-gray-600 border-b">
-                                <span>Ongkos Kirim</span>
+                                <span>
+                                    {isPickup
+                                        ? "Biaya Penanganan"
+                                        : "Ongkos Kirim"}
+                                </span>
                                 <span>
                                     {formatRupiah(transaction.shipping_cost)}
                                 </span>

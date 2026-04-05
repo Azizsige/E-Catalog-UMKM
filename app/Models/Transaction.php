@@ -19,6 +19,7 @@ class Transaction extends Model
     'payment_status',
     'payment_method',
     'snap_token',
+    'resi_number'
 ];
 
     protected $guarded = ['id'];

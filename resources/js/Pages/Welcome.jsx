@@ -117,7 +117,18 @@ export default function Welcome({
 
     return (
         <div className="relative min-h-screen font-sans text-gray-900 bg-gray-50">
-            <Head title={storeInfo?.name || "Katalog Produk"} />
+            <Head title={storeInfo?.name || "Katalog Produk"}>
+                {/* Logic Dynamic Favicon: Kalau logo ada pakai logo toko, kalau null pakai favicon bawaan Laravel */}
+                <link
+                    rel="icon"
+                    type="image/png"
+                    href={
+                        storeInfo?.logo
+                            ? `/storage/${storeInfo.logo}`
+                            : "/favicon.ico"
+                    }
+                />
+            </Head>
             <Navbar />
 
             {/* --- TOAST NOTIFICATION --- */}
